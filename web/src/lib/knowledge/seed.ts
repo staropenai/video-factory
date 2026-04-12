@@ -17,6 +17,15 @@ export type RiskLevel = "low" | "medium" | "high";
 export type SourceType = "community" | "government" | "expert" | "seed" | "practical" | "official" | "mixed" | "stub";
 export type Lang = "en" | "zh" | "ja";
 
+/**
+ * Card entropy tier — v4 改进 #1.
+ *   A = one-sentence answer, router returns it without invoking the LLM.
+ *   B = short procedural answer (≤ 5 steps), router returns it without the LLM.
+ *   C = needs AI judgement → injected as context into the AI layer.
+ * Absent / undefined is treated as C so behavior stays conservative.
+ */
+export type FaqTier = "A" | "B" | "C";
+
 export type LocalizedText = { en: string; zh: string; ja: string };
 
 export type FaqEntry = {
@@ -39,6 +48,13 @@ export type FaqEntry = {
   language: "multi" | Lang;
   keywords: { en: string[]; zh: string[]; ja: string[] };
   status: "live" | "stub";
+  /**
+   * Optional card entropy tier (v4 改进 #1). Seeds authored before tier
+   * grading existed implicitly behave as "C" (always routed through AI).
+   * Mark a card Tier A/B only when the answer is short, unambiguous, and
+   * carries no dynamic dependency.
+   */
+  tier?: FaqTier;
 };
 
 /** Lightweight stub — scaffold only. Used by planners, not by retrieval. */
@@ -2267,7 +2283,41 @@ export const STUB_FAQS: FaqStub[] = [
   })),
 ];
 
-export const SEED_FAQS: FaqEntry[] = LIVE_FAQS;
+/**
+ * Card entropy tier assignment by subtopic (v4 改进 #1).
+ *
+ * These subtopics have answers that are short, unambiguous, and independent
+ * of any dynamic data — perfect candidates for the Tier A "return directly,
+ * skip LLM" path. Anything not listed here defaults to Tier C and continues
+ * to flow through the AI layer.
+ *
+ * Keep this list conservative: adding a subtopic here means the router will
+ * return the fixed standard_answer verbatim without giving the AI layer a
+ * chance to disambiguate language or intent. Only include entries that are
+ * genuinely "one-sentence, one-answer".
+ */
+const TIER_BY_SUBTOPIC: Record<string, FaqTier> = {
+  // Tier A: single-sentence factual answers.
+  "hanko": "A",
+  "my-number": "A",
+  "floor-plan-abbreviations": "A",
+  // Tier B: short procedural answers (≤ 5 steps).
+  "garbage": "B",
+  "garbage-day": "B",
+  "move-in-checklist": "B",
+  "mobile-sim": "B",
+};
+
+/** Resolve the effective tier of a seed FAQ entry. */
+export function resolveTier(faq: FaqEntry): FaqTier {
+  if (faq.tier) return faq.tier;
+  return TIER_BY_SUBTOPIC[faq.subtopic] ?? "C";
+}
+
+export const SEED_FAQS: FaqEntry[] = LIVE_FAQS.map((f) => ({
+  ...f,
+  tier: f.tier ?? TIER_BY_SUBTOPIC[f.subtopic] ?? "C",
+}));
 
 /** Normalize and expand a query using synonym groups. */
 export function expandQuery(raw: string): Set<string> {

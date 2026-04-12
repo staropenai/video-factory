@@ -373,6 +373,63 @@ export default function HomePage() {
   const [showCorrection, setShowCorrection] = useState(false);
   const [correction, setCorrection] = useState("");
 
+  // §6.1 input type switcher: text / image / voice. Image and voice both
+  // resolve to a text query that flows through the same /api/router pipeline.
+  const [inputMode, setInputMode] = useState<"text" | "image" | "voice">("text");
+  const [mediaProcessing, setMediaProcessing] = useState(false);
+  const [mediaSource, setMediaSource] = useState<"openai" | "fallback" | null>(
+    null,
+  );
+  const [mediaError, setMediaError] = useState<string | null>(null);
+
+  async function onImageFile(file: File) {
+    setMediaProcessing(true);
+    setMediaError(null);
+    setMediaSource(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("language", lang);
+      const res = await fetch("/api/vision-extract", { method: "POST", body: fd });
+      const j = await res.json();
+      if (!res.ok || !j.ok) throw new Error(j.error || "Vision failed");
+      setMediaSource(j.source || null);
+      const next = (j.suggestedQuery || j.extractedText || "").trim();
+      if (next) setQuery(next);
+    } catch (e) {
+      setMediaError(e instanceof Error ? e.message : "Vision failed");
+    } finally {
+      setMediaProcessing(false);
+    }
+  }
+
+  async function onVoiceFile(file: File) {
+    setMediaProcessing(true);
+    setMediaError(null);
+    setMediaSource(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("language", lang);
+      const res = await fetch("/api/transcribe", { method: "POST", body: fd });
+      const j = await res.json();
+      if (!res.ok || !j.ok) throw new Error(j.error || "Transcription failed");
+      setMediaSource(j.source || null);
+      const next = (j.text || "").trim();
+      if (next) setQuery(next);
+      else
+        setMediaError(
+          j.debug?.reason === "audio_disabled"
+            ? "Voice input is currently disabled. Please type instead."
+            : "No speech recognized — please try again.",
+        );
+    } catch (e) {
+      setMediaError(e instanceof Error ? e.message : "Transcription failed");
+    } finally {
+      setMediaProcessing(false);
+    }
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!query.trim()) return;
@@ -519,6 +576,113 @@ export default function HomePage() {
       <section className="flex-1 flex items-center justify-center px-6 py-20">
         <div className="w-full max-w-2xl">
           <form onSubmit={onSubmit} className="flex flex-col gap-4">
+            {/* §6.1 input type switcher */}
+            <div className="flex justify-center gap-1 rounded-full border border-border bg-surface p-1 self-center">
+              {(["text", "image", "voice"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setInputMode(m)}
+                  className={
+                    "rounded-full px-4 py-1.5 text-sm transition-colors " +
+                    (inputMode === m
+                      ? "bg-foreground text-surface"
+                      : "text-muted hover:text-foreground")
+                  }
+                >
+                  {m === "text"
+                    ? lang === "zh"
+                      ? "文字"
+                      : lang === "ja"
+                        ? "テキスト"
+                        : "Text"
+                    : m === "image"
+                      ? lang === "zh"
+                        ? "图片"
+                        : lang === "ja"
+                          ? "画像"
+                          : "Image"
+                      : lang === "zh"
+                        ? "语音"
+                        : lang === "ja"
+                          ? "音声"
+                          : "Voice"}
+                </button>
+              ))}
+            </div>
+
+            {inputMode === "image" && (
+              <div className="rounded-2xl border border-dashed border-border bg-surface p-4 text-center">
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={mediaProcessing}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) onImageFile(f);
+                  }}
+                  className="block w-full text-sm"
+                />
+                <p className="mt-2 text-xs text-muted">
+                  {lang === "zh"
+                    ? "上传文件、账单或证件照片，我们会识别并生成问题。"
+                    : lang === "ja"
+                      ? "書類・請求書・身分証の写真をアップロードすると、内容を読み取って質問を生成します。"
+                      : "Upload a document, bill, or ID photo — we'll OCR it and draft a question."}
+                </p>
+                {mediaProcessing && (
+                  <p className="mt-2 text-xs text-muted">…</p>
+                )}
+                {mediaSource === "fallback" && !mediaError && (
+                  <p className="mt-2 text-xs text-amber-600">
+                    {lang === "zh"
+                      ? "图片识别暂不可用，请直接输入。"
+                      : lang === "ja"
+                        ? "画像認識は現在ご利用いただけません。"
+                        : "Image recognition unavailable — please type instead."}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {inputMode === "voice" && (
+              <div className="rounded-2xl border border-dashed border-border bg-surface p-4 text-center">
+                <input
+                  type="file"
+                  accept="audio/*"
+                  disabled={mediaProcessing}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) onVoiceFile(f);
+                  }}
+                  className="block w-full text-sm"
+                />
+                <p className="mt-2 text-xs text-muted">
+                  {lang === "zh"
+                    ? "上传一段录音，我们会转写为文字。"
+                    : lang === "ja"
+                      ? "音声ファイルをアップロードすると文字起こしします。"
+                      : "Upload a short recording — we'll transcribe it to text."}
+                </p>
+                {mediaProcessing && (
+                  <p className="mt-2 text-xs text-muted">…</p>
+                )}
+                {mediaSource === "fallback" && !mediaError && (
+                  <p className="mt-2 text-xs text-amber-600">
+                    {lang === "zh"
+                      ? "语音输入暂不可用，请直接输入。"
+                      : lang === "ja"
+                        ? "音声入力は現在ご利用いただけません。"
+                        : "Voice input unavailable — please type instead."}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {mediaError && (
+              <p className="text-xs text-red-600 text-center">{mediaError}</p>
+            )}
+
             <label htmlFor="q" className="sr-only">
               Ask anything about living in Japan
             </label>

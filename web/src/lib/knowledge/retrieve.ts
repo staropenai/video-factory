@@ -6,7 +6,49 @@
  */
 
 import type { RetrievalSummary } from '@/lib/router/types'
-import { scoreQueryAgainstSeeds, type FaqEntry } from '@/lib/knowledge/seed'
+import {
+  scoreQueryAgainstSeeds,
+  resolveTier,
+  type FaqEntry,
+} from '@/lib/knowledge/seed'
+import { scoreQueryAgainstOverlay } from '@/lib/knowledge/overlay'
+
+/**
+ * Minimum saturated score required before we trust a Tier A/B shortcut and
+ * skip the LLM entirely. 0.77 ≈ "at least 2 synonym-expanded keyword hits".
+ *
+ * Rationale: the shortcut replaces the whole AI layer, so it's the single
+ * biggest correctness lever. Keep the bar strictly above the 0.62 "single-
+ * hit" floor to avoid Tier-A false positives from ambient vocabulary.
+ */
+const TIER_SHORTCUT_MIN_SCORE = 0.77
+
+/**
+ * Run both the static seed scorer and the live-FAQ overlay scorer, then
+ * merge their results keeping the best (score, hits) per FAQ id. Live FAQs
+ * win ties against seeds because they are staff-reviewed and represent the
+ * latest understanding of the problem.
+ */
+function scoreMerged(
+  rawQuery: string,
+): Array<{ faq: FaqEntry; score: number; hits: number }> {
+  const seed = scoreQueryAgainstSeeds(rawQuery)
+  const overlay = scoreQueryAgainstOverlay(rawQuery)
+  if (overlay.length === 0) return seed
+  const bestById = new Map<string, { faq: FaqEntry; score: number; hits: number }>()
+  for (const s of seed) bestById.set(s.faq.id, s)
+  for (const o of overlay) {
+    const prev = bestById.get(o.faq.id)
+    // Live overlays win ties — they are staff-reviewed and newer.
+    if (!prev || o.score >= prev.score) {
+      bestById.set(o.faq.id, o)
+    }
+  }
+  return Array.from(bestById.values()).sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score
+    return b.hits - a.hits
+  })
+}
 
 const EMPTY_RETRIEVAL: RetrievalSummary = {
   faqSlugs: [],
@@ -16,6 +58,27 @@ const EMPTY_RETRIEVAL: RetrievalSummary = {
   hasConflict: false,
   hasStaleSource: false,
   hasDynamicDependencyWithoutVerification: false,
+  topTier: undefined,
+  topSourceType: undefined,
+  shortcut: 'none',
+}
+
+/**
+ * Decide whether the top match qualifies for a Tier A/B LLM-shortcut.
+ * Only seed + live-FAQ (STATIC) cards are eligible — REALTIME and
+ * AI_INFERRED knowledge must always flow through the AI layer because they
+ * carry their own staleness / hallucination risks.
+ */
+function tierShortcut(
+  tier: 'A' | 'B' | 'C',
+  topScore: number,
+  sourceType: 'STATIC' | 'REALTIME' | 'AI_INFERRED',
+): 'tier_a_shortcut' | 'tier_b_shortcut' | 'none' {
+  if (sourceType !== 'STATIC') return 'none'
+  if (topScore < TIER_SHORTCUT_MIN_SCORE) return 'none'
+  if (tier === 'A') return 'tier_a_shortcut'
+  if (tier === 'B') return 'tier_b_shortcut'
+  return 'none'
 }
 
 export type RetrievalResult = {
@@ -24,7 +87,7 @@ export type RetrievalResult = {
 }
 
 export function retrieveFromLocal(query: string): RetrievalResult {
-  const scored = scoreQueryAgainstSeeds(query)
+  const scored = scoreMerged(query)
   if (scored.length === 0) {
     return { summary: { ...EMPTY_RETRIEVAL }, matches: [] }
   }
@@ -34,6 +97,10 @@ export function retrieveFromLocal(query: string): RetrievalResult {
   const top = scored.slice(0, 2)
   const matches = top.map((s) => s.faq)
   const topScore = top[0].score
+  const topTier = resolveTier(top[0].faq)
+  // Seed + live-FAQ overlay are both STATIC provenance — v4 改进 #6.
+  const topSourceType = 'STATIC' as const
+  const shortcut = tierShortcut(topTier, topScore, topSourceType)
 
   // Each live FAQ counts as one primary source + one next_step_contact
   // (city office, immigration, etc.) — stub 2 supporting sources per match
@@ -50,6 +117,9 @@ export function retrieveFromLocal(query: string): RetrievalResult {
       hasConflict: false,
       hasStaleSource: false,
       hasDynamicDependencyWithoutVerification: false,
+      topTier,
+      topSourceType,
+      shortcut,
     },
     matches,
   }
@@ -78,7 +148,9 @@ export function retrieveFromLocalMulti(
 
   const bestById = new Map<string, { faq: FaqEntry; score: number; hits: number }>()
   for (const q of uniqueQueries) {
-    const scored = scoreQueryAgainstSeeds(q)
+    // Merged scorer = seed + live-FAQ overlay. Published live FAQs become
+    // retrievable the instant they land in /tmp/live_faqs.jsonl.
+    const scored = scoreMerged(q)
     for (const s of scored) {
       const prev = bestById.get(s.faq.id)
       if (!prev || s.score > prev.score || (s.score === prev.score && s.hits > prev.hits)) {
@@ -97,6 +169,9 @@ export function retrieveFromLocalMulti(
   const top = sorted.slice(0, 2)
   const matches = top.map((s) => s.faq)
   const topScore = top[0].score
+  const topTier = resolveTier(top[0].faq)
+  const topSourceType = 'STATIC' as const
+  const shortcut = tierShortcut(topTier, topScore, topSourceType)
   const sourceCount = matches.length * 2
 
   return {
@@ -108,6 +183,9 @@ export function retrieveFromLocalMulti(
       hasConflict: false,
       hasStaleSource: false,
       hasDynamicDependencyWithoutVerification: false,
+      topTier,
+      topSourceType,
+      shortcut,
     },
     matches,
   }

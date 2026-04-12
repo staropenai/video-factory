@@ -31,8 +31,23 @@ import { retrieveFromLocal, retrieveFromLocalMulti } from '@/lib/knowledge/retri
 import { decideRoute } from '@/lib/router/decide'
 import { validateDecision } from '@/lib/validation/guardrails'
 import { logRouterDecision, logError } from '@/lib/audit/logger'
-import { insertUserQuery, insertHandoff } from '@/lib/db/tables'
+import {
+  insertUserQuery,
+  insertHandoff,
+  insertCase,
+  insertEvent,
+} from '@/lib/db/tables'
+import {
+  validateAnswerPayload,
+  staticFactBlock,
+  aiInferredBlock,
+  type AnswerPayload,
+} from '@/lib/domain/contracts'
 import { env as openaiEnv } from '@/lib/ai/openai'
+import { checkPromptInjection, sanitizeForLog } from '@/lib/security/prompt-injection'
+import { buildSecurityEvent, classifySecuritySeverity, logSecurityEvent } from '@/lib/security/event-log'
+import { buildLayerHitEvent, recordLayerHit } from '@/lib/pipeline/writeback-hooks'
+import { recordRoutingDecision } from '@/lib/patent/metrics-collector'
 
 import type { AnswerMode as RuleAnswerMode, RiskLevel } from '@/lib/router/types'
 import type { AnswerMode as ApiAnswerMode, AIUnderstandingResult, Language } from '@/lib/ai/types'
@@ -104,6 +119,57 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // V6 §P0-3 — Prompt injection detection. Runs BEFORE any LLM call.
+    const injectionCheck = checkPromptInjection(message)
+    if (injectionCheck.detected && injectionCheck.highestSeverity === 'high') {
+      const secClass = classifySecuritySeverity(injectionCheck.highestSeverity)
+      logSecurityEvent(
+        buildSecurityEvent({
+          eventType: secClass.eventType,
+          severity: secClass.severity,
+          route: '/api/router',
+          inputPreview: sanitizeForLog(message, 200),
+          matchedPatternIds: injectionCheck.matchedPatterns.map((p) => p.id),
+          description: `Prompt injection blocked: ${injectionCheck.matchedPatterns.map((p) => p.description).join('; ')}`,
+          blocked: true,
+        }),
+      )
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'Your input could not be processed. Please rephrase your question.',
+          debug: { requestId },
+        },
+        { status: 400 },
+      )
+    }
+
+    // Spec §8.3 — durable QUERY_RECEIVED event at the very top of the path.
+    // This is what makes the sensing loop possible: every query, matched or
+    // not, is persisted as an event row (not console-only).
+    insertEvent({
+      eventType: 'QUERY_RECEIVED',
+      route: '/api/router',
+      relatedIds: { sessionId },
+      metadata: {
+        requestId,
+        messageLength: message.length,
+        languageGuess: detectLanguageFallback(message),
+      },
+    })
+
+    // Spec §12 — minimal path trace. We mutate this as we walk the layers so
+    // the audit log and response can show exactly which layer answered.
+    const pathTrace: {
+      layers: string[]
+      llmCalled: boolean
+      sourceClass: 'STATIC' | 'REALTIME' | 'AI_INFERRED' | 'ESCALATION' | 'UNKNOWN'
+    } = {
+      layers: ['query_received'],
+      llmCalled: false,
+      sourceClass: 'UNKNOWN',
+    }
+
     // ----------------------------------------------------------------
     // 1) AI understanding (OpenAI Responses API). Falls back on failure.
     // ----------------------------------------------------------------
@@ -112,6 +178,8 @@ export async function POST(req: NextRequest) {
     const detectedLanguage: Language = ai.language || detectLanguageFallback(message)
     const openaiUsed = understanding.source === 'openai'
     const fallbackUsed = understanding.source === 'fallback'
+    pathTrace.layers.push(`understand:${understanding.source}`)
+    if (openaiUsed) pathTrace.llmCalled = true
 
     // ----------------------------------------------------------------
     // 2) Retrieval — multi-query when AI gave us rewrites, else original.
@@ -155,18 +223,121 @@ export async function POST(req: NextRequest) {
     const apiMode: ApiAnswerMode = ruleModeToApiMode(decision.answerMode)
     const topMatch = retrieval.matches[0] ?? null
     const knowledgeFound = retrieval.matches.length > 0
+    pathTrace.layers.push(
+      knowledgeFound ? `retrieve:hit(${retrieval.matches.length})` : 'retrieve:miss',
+    )
+
+    // Spec §8.3 — RETRIEVE_HIT_STATIC event whenever the local knowledge base
+    // actually returned something. Lets staff audit how often STATIC wins.
+    if (knowledgeFound && topMatch) {
+      insertEvent({
+        eventType: 'RETRIEVE_HIT_STATIC',
+        route: '/api/router',
+        relatedIds: { cardId: topMatch.id, sessionId },
+        metadata: {
+          requestId,
+          topScore: retrieval.summary.topScore,
+          topTier: retrieval.summary.topTier ?? null,
+          topSourceType: retrieval.summary.topSourceType ?? null,
+          matchCount: retrieval.matches.length,
+        },
+      })
+    }
 
     // ----------------------------------------------------------------
-    // 5) Render — OpenAI Responses API, plain text in the user's language.
+    // 4.5) Tier A/B LLM shortcut — v4 改进 #1.
+    //
+    // If retrieval says the top match is a Tier A/B STATIC card AND the rule
+    // layer did not escalate (no handoff, no official_only, no high risk),
+    // return the card's standard_answer verbatim and skip renderFinalAnswer
+    // entirely. This is the "use cheap resources (keyword index) to eliminate
+    // uncertainty, save expensive resources (LLM) for real uncertainty" path.
+    //
+    // Safety: we ONLY take the shortcut when every safety gate also allows a
+    // normal direct answer. Any rule escalation falls through to the LLM.
     // ----------------------------------------------------------------
-    const rendered = await renderFinalAnswer({
-      userMessage: message,
-      language: detectedLanguage,
-      mode: apiMode,
-      riskLevel: decision.riskLevel,
-      missingInfo: ai.missingInfo,
-      retrieved: retrieval.matches.map((m) => faqToRetrieved(m, detectedLanguage)),
-    })
+    const shortcut = retrieval.summary.shortcut ?? 'none'
+    const canShortcut =
+      shortcut !== 'none' &&
+      decision.answerMode === 'direct_answer' &&
+      !decision.shouldEscalate &&
+      decision.riskLevel !== 'high' &&
+      topMatch != null
+
+    const rendered = canShortcut
+      ? {
+          answer: topMatch!.standard_answer[detectedLanguage],
+          source: 'tier_shortcut' as const,
+          latencyMs: 0,
+        }
+      : await renderFinalAnswer({
+          userMessage: message,
+          language: detectedLanguage,
+          mode: apiMode,
+          riskLevel: decision.riskLevel,
+          missingInfo: ai.missingInfo,
+          retrieved: retrieval.matches.map((m) =>
+            faqToRetrieved(m, detectedLanguage),
+          ),
+        })
+
+    if (canShortcut) {
+      pathTrace.layers.push('tier_shortcut')
+      pathTrace.sourceClass = 'STATIC'
+    } else {
+      pathTrace.layers.push(`render:${rendered.source}`)
+      if (rendered.source === 'openai') {
+        pathTrace.llmCalled = true
+      }
+      if (decision.answerMode === 'handoff' || decision.shouldEscalate) {
+        pathTrace.sourceClass = 'ESCALATION'
+      } else if (knowledgeFound && !pathTrace.llmCalled) {
+        pathTrace.sourceClass = 'STATIC'
+      } else if (pathTrace.llmCalled) {
+        pathTrace.sourceClass = 'AI_INFERRED'
+      }
+    }
+
+    // ----------------------------------------------------------------
+    // 5.5) Spec §4 — build and validate the labelled AnswerPayload.
+    //
+    // STATIC shortcut: a single FACT block sourced from the top FAQ card.
+    // LLM path: one FACT block per retrieved card (provenance) + one
+    //           INFERENCE block for the model-generated text.
+    // ----------------------------------------------------------------
+    let payload: AnswerPayload
+    if (canShortcut && topMatch) {
+      payload = {
+        blocks: [staticFactBlock(rendered.answer, topMatch.id, 1)],
+      }
+    } else {
+      const factBlocks = retrieval.matches.map((m) =>
+        staticFactBlock(
+          m.standard_answer[detectedLanguage],
+          m.id,
+          retrieval.summary.topScore ?? 0.5,
+        ),
+      )
+      const blocks = [...factBlocks]
+      // Only add the INFERENCE block if the render actually came from the LLM.
+      // Pure templated / fallback renders are deterministic and don't warrant
+      // an AI_INFERRED tag (they're STATIC fact from our own templates).
+      if (pathTrace.llmCalled && rendered.answer) {
+        blocks.push(
+          aiInferredBlock(
+            rendered.answer,
+            retrieval.matches.map((m) => m.id),
+            ai.confidence ?? 0.6,
+          ),
+        )
+      } else if (blocks.length === 0) {
+        // No retrieval, no LLM — templated/escalation text. Tag it as STATIC
+        // so the payload still validates (empty payloads are blocked).
+        blocks.push(staticFactBlock(rendered.answer, 'template', 0.5))
+      }
+      payload = { blocks }
+    }
+    const validatedPayload = validateAnswerPayload(payload)
 
     // ----------------------------------------------------------------
     // 6) Persist + audit. Every request lands in user_queries.
@@ -226,6 +397,13 @@ export async function POST(req: NextRequest) {
           topScore: retrieval.summary.topScore,
           matchCount: retrieval.matches.length,
           matchedSourceIds: retrieval.matches.map((m) => m.id),
+          // v4 改进 #1 / #6: surface tier + provenance + shortcut decision so
+          // staff can audit how often the LLM is being bypassed and with
+          // which cards.
+          topTier: retrieval.summary.topTier ?? null,
+          topSourceType: retrieval.summary.topSourceType ?? null,
+          shortcut,
+          shortcutTaken: canShortcut,
         },
         rule: {
           answerMode: ruleDecision.answerMode,
@@ -242,6 +420,13 @@ export async function POST(req: NextRequest) {
           source: rendered.source,
           latencyMs: rendered.latencyMs,
         },
+        payload: {
+          blocked: validatedPayload.blocked ?? false,
+          block_reason: validatedPayload.block_reason ?? null,
+          blockCount: validatedPayload.blocks.length,
+          labels: validatedPayload.blocks.map((b) => b.label),
+        },
+        pathTrace,
         openaiUsed,
         fallbackUsed,
         latencyMs: Date.now() - startedAt,
@@ -249,7 +434,7 @@ export async function POST(req: NextRequest) {
     )
 
     if (decision.answerMode === 'handoff' || decision.shouldEscalate) {
-      insertHandoff({
+      const handoffRow = insertHandoff({
         userQueryId: stored.id,
         timestamp: new Date().toISOString(),
         queryText: message.slice(0, 500),
@@ -259,6 +444,64 @@ export async function POST(req: NextRequest) {
         reason: decision.decisionReason || 'Routed to handoff.',
         sessionId,
       })
+      // Phase 3: auto-create a case so the /cases surface has a row to track.
+      try {
+        insertCase({
+          queryText: message.slice(0, 1000),
+          language: detectedLanguage,
+          category: ai.category || null,
+          subtopic: ai.subtopic || null,
+          riskLevel: decision.riskLevel,
+          assignee: null,
+          dueDate: null,
+          notes: decision.decisionReason || null,
+          sourceUserQueryId: stored.id,
+          sourceHandoffId: handoffRow.id,
+          resolutionSummary: null,
+        })
+      } catch (e) {
+        logError('case_autocreate_error', e)
+      }
+    }
+
+    // ----------------------------------------------------------------
+    // 6.5) V6 §P0-1 — Layer 7 writeback hook. Persist which layer
+    //       answered so the layer-stats module can compute hit rates.
+    // ----------------------------------------------------------------
+    try {
+      recordLayerHit(
+        buildLayerHitEvent(pathTrace, {
+          queryId: stored.id,
+          cardId: topMatch?.id,
+          sessionId,
+        }),
+      )
+    } catch (e) {
+      logError('writeback_hook_error', e)
+    }
+
+    // ----------------------------------------------------------------
+    // 6.6) Patent PoC — record routing decision for 方案A data collection.
+    //       Best-effort; never blocks the response path.
+    // ----------------------------------------------------------------
+    try {
+      const confidenceBand = decision.confidenceBand
+      const confNum = confidenceBand === 'high' ? 0.9 : confidenceBand === 'medium' ? 0.6 : 0.3
+      recordRoutingDecision({
+        queryId: stored.id,
+        features: {
+          fSemantic: retrieval.summary.topScore ?? null,
+          fRisk: decision.riskLevel === 'high' ? 1.0 : decision.riskLevel === 'medium' ? 0.5 : 0.1,
+          fLang: 0, // Populated when f_lang I/O is wired to user sessions
+          fTemporal: pathTrace.sourceClass === 'REALTIME',
+        },
+        routeTaken: pathTrace.sourceClass,
+        costEstimate: understanding.source === 'openai' ? 0.01 : 0,
+        confidenceScore: confNum,
+        layer6Triggered: decision.shouldEscalate || decision.answerMode === 'handoff',
+      })
+    } catch (e) {
+      logError('patent_metric_error', e)
     }
 
     // ----------------------------------------------------------------
@@ -295,10 +538,24 @@ export async function POST(req: NextRequest) {
       })),
       handoff: decision.answerMode === 'handoff' || decision.shouldEscalate,
       officialOnly: decision.answerMode === 'official_only',
+      // Spec §4 — labelled, validated output payload. Clients that understand
+      // the contract should render from `payload.blocks` directly; the
+      // legacy `answer` string is still returned for back-compat.
+      payload: validatedPayload,
+      // Spec §12 — minimal path trace per query.
+      pathTrace,
       debug: {
         requestId,
         understandingSource: understanding.source,
         renderingSource: rendered.source,
+        // v4 改进 #1 / #6: expose the tier-shortcut decision so the /review
+        // dashboard and tests can verify "Tier A answered, LLM skipped".
+        shortcut,
+        shortcutTaken: canShortcut,
+        topTier: retrieval.summary.topTier ?? null,
+        topSourceType: retrieval.summary.topSourceType ?? null,
+        payloadBlocked: validatedPayload.blocked ?? false,
+        payloadBlockReason: validatedPayload.block_reason ?? null,
       },
       // ── Backwards-compat fields used by current page.tsx ─────────
       decision,

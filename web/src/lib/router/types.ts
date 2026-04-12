@@ -20,6 +20,20 @@ export type TaskState = {
   context?: Record<string, unknown>
 }
 
+/**
+ * Card entropy tier — v4 改进 #1. See seed.ts / tables.ts for the full
+ * contract. Re-exported here so router/decide.ts doesn't have to import from
+ * the knowledge module.
+ */
+export type FaqTier = 'A' | 'B' | 'C'
+
+/**
+ * Source-type contract — v4 改进 #6. Every piece of knowledge entering the
+ * router carries one of these tags so answers can be rendered with explicit
+ * provenance instead of "hallucination with citations".
+ */
+export type SourceType = 'STATIC' | 'REALTIME' | 'AI_INFERRED'
+
 export type RetrievalSummary = {
   faqSlugs: string[]
   sourceCount: number
@@ -28,6 +42,22 @@ export type RetrievalSummary = {
   hasConflict: boolean
   hasStaleSource: boolean
   hasDynamicDependencyWithoutVerification: boolean
+  /**
+   * Tier of the top matched card (v4 改进 #1). When this is 'A' or 'B' and
+   * topScore is above the shortcut threshold, the router bypasses the LLM.
+   */
+  topTier?: FaqTier
+  /**
+   * Provenance of the top matched card (v4 改进 #6). Always present on
+   * real retrievals; retained as optional so the EMPTY_RETRIEVAL literal
+   * stays valid.
+   */
+  topSourceType?: SourceType
+  /**
+   * 'tier_a_shortcut' / 'tier_b_shortcut' when the router can skip the LLM.
+   * 'none' when the AI layer must run.
+   */
+  shortcut?: 'tier_a_shortcut' | 'tier_b_shortcut' | 'none'
 }
 
 export type RuleContext = {

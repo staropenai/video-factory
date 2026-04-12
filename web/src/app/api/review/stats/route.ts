@@ -8,7 +8,7 @@
  * the store for a real persistence layer.
  */
 
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import {
   getReviewStats,
   listUserQueries,
@@ -16,16 +16,29 @@ import {
   listFaqCandidates,
 } from '@/lib/db/tables'
 import { CATEGORY_COUNTS } from '@/lib/knowledge/seed'
+import { CANDIDATE_STATES } from '@/lib/domain/enums'
+import type { CandidateState } from '@/lib/domain/enums'
 import { logError } from '@/lib/audit/logger'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    // Spec §9 — backend-driven state filter. The /review UI passes ?state=
+    // and we hand back exactly what the state machine says, no frontend
+    // reshuffling. Empty/unknown filters return the full unfiltered list.
+    const url = new URL(req.url)
+    const stateParam = url.searchParams.get('state')
+    const state =
+      stateParam && (CANDIDATE_STATES as readonly string[]).includes(stateParam)
+        ? (stateParam as CandidateState)
+        : undefined
+
     return NextResponse.json({
       ok: true,
       stats: getReviewStats(),
       recentLog: listUserQueries(50),
       handoffs: listHandoffs(),
-      faqCandidates: listFaqCandidates(),
+      faqCandidates: listFaqCandidates(state ? { state } : undefined),
+      candidateStateFilter: state ?? null,
       content: CATEGORY_COUNTS,
     })
   } catch (error) {

@@ -1,5 +1,6 @@
 /**
- * POST /api/feedback — capture human tester satisfaction signal.
+ * POST /api/feedback — capture human tester satisfaction signal + staff
+ * writeback. Implements §7.2 of the CEO iteration plan.
  *
  * Body:
  *   {
@@ -7,18 +8,27 @@
  *     systemAnswer: string,
  *     answerMode: string,
  *     isSatisfied: boolean,
- *     humanReply?: string,    // required when isSatisfied === false
- *     language: 'en'|'zh'|'ja'
+ *     humanReply?: string,       // required when isSatisfied === false
+ *     language: 'en'|'zh'|'ja',
+ *
+ *     // ---- §7.2 extended writeback fields (all optional) ----
+ *     resolutionSummary?: string,
+ *     shouldCreateFaq?: boolean,
+ *     shouldUpdateFaq?: boolean,
+ *     shouldAddRule?: boolean,
+ *     shouldAddSource?: boolean,
+ *     notes?: string,
+ *     category?: string,
+ *     subtopic?: string,
  *   }
  *
  * On success:
- *   - inserts a `user_feedback` row
- *   - if isSatisfied === false AND humanReply non-empty, also inserts a
- *     faq_candidates row with source='user_feedback', status='pending_review'
+ *   - inserts a `user_feedback` row with all writeback fields
+ *   - if (isSatisfied === false AND humanReply non-empty) OR shouldCreateFaq,
+ *     also inserts a faq_candidates row with source='user_feedback',
+ *     status='pending_review'
  *
  * Persistence: file-backed JSONL tables (see lib/db/tables.ts).
- * [KNOWN LIMITATION] On Vercel `/tmp` is per-instance and ephemeral across
- * cold starts; this is the explicit Phase-1 trade-off.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -48,6 +58,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'isSatisfied is required' }, { status: 400 })
     }
 
+    // §7.2 extended writeback fields — all optional, all clamped.
+    const resolutionSummary = body.resolutionSummary
+      ? String(body.resolutionSummary).slice(0, 4000)
+      : null
+    const shouldCreateFaq = Boolean(body.shouldCreateFaq)
+    const shouldUpdateFaq = Boolean(body.shouldUpdateFaq)
+    const shouldAddRule = Boolean(body.shouldAddRule)
+    const shouldAddSource = Boolean(body.shouldAddSource)
+    const notes = body.notes ? String(body.notes).slice(0, 2000) : null
+    const category = body.category ? String(body.category).slice(0, 80) : null
+    const subtopic = body.subtopic ? String(body.subtopic).slice(0, 80) : null
+
     const feedback = insertUserFeedback({
       queryText: queryText.slice(0, 1000),
       systemAnswer: systemAnswer.slice(0, 4000),
@@ -55,10 +77,20 @@ export async function POST(req: NextRequest) {
       isSatisfied,
       humanReply: humanReply ? humanReply.slice(0, 4000) : null,
       language,
+      resolutionSummary,
+      shouldCreateFaq,
+      shouldUpdateFaq,
+      shouldAddRule,
+      shouldAddSource,
+      notes,
+      category,
+      subtopic,
     })
 
     let faqCandidateId: string | undefined
-    if (!isSatisfied && humanReply) {
+    // Either an explicit "create FAQ" flag OR an old-school dissatisfaction
+    // with a written reply triggers the candidate row.
+    if ((shouldCreateFaq && humanReply) || (!isSatisfied && humanReply)) {
       const candidate = insertFaqCandidate({
         source: 'user_feedback',
         sourceFeedbackId: feedback.id,
@@ -78,6 +110,10 @@ export async function POST(req: NextRequest) {
       language,
       answerMode,
       hasHumanReply: Boolean(humanReply),
+      shouldCreateFaq,
+      shouldUpdateFaq,
+      shouldAddRule,
+      shouldAddSource,
       faqCandidateId,
     })
 
