@@ -9,6 +9,7 @@
  */
 
 import type { RouterDecision } from '@/lib/router/types'
+import { captureError } from '@/lib/monitoring/sentry'
 
 export type LogLevel = 'info' | 'warn' | 'error' | 'audit'
 
@@ -98,4 +99,6 @@ export function logError(event: string, error: unknown): void {
       stack: error instanceof Error ? error.stack : undefined,
     },
   })
+  // Forward to Sentry when configured
+  captureError(error, { tags: { event } })
 }

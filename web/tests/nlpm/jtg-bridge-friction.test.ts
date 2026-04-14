@@ -9,6 +9,8 @@
  * All tests are pure — no DB, no network, no filesystem.
  */
 
+export {}
+
 async function main(): Promise<number> {
   // Dynamic imports (avoid top-level await for ES2017 target).
   const {

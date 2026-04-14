@@ -14,7 +14,9 @@
  * base — lives at /api/review/faq-candidates/[id]/publish.
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { ok, fail, notFound, rateLimited } from '@/lib/utils/api-response'
+import { checkRateLimit, extractClientIp, RATE_LIMIT_PRESETS } from '@/lib/security/rate-limit'
 import {
   listUserQueries,
   insertFaqCandidate,
@@ -23,6 +25,8 @@ import {
 } from '@/lib/db/tables'
 import { clusterNoMatchQueries, type Cluster } from '@/lib/sensing/cluster'
 import { logError } from '@/lib/audit/logger'
+import { devLog } from '@/lib/utils/dev-log'
+import { requireAdmin } from '@/lib/auth/admin-guard'
 
 function parseNumber(v: string | null, fallback: number): number {
   if (!v) return fallback
@@ -31,6 +35,12 @@ function parseNumber(v: string | null, fallback: number): number {
 }
 
 export async function GET(req: NextRequest) {
+  const rl = checkRateLimit(`sensing-scan:${extractClientIp(req.headers)}`, RATE_LIMIT_PRESETS.strict);
+  if (!rl.allowed) return rateLimited(Math.ceil((rl.retryAfterMs ?? 60000) / 1000));
+
+  const authCheck = requireAdmin(req);
+  if (!authCheck.ok) return authCheck.response;
+
   try {
     const url = new URL(req.url)
     const minCount = parseNumber(url.searchParams.get('minCount'), 2)
@@ -45,8 +55,7 @@ export async function GET(req: NextRequest) {
     })
     const totalNoMatch = rows.filter((r) => !r.knowledgeFound).length
 
-    return NextResponse.json({
-      ok: true,
+    return ok({
       clusters,
       totalNoMatch,
       totalScanned: rows.length,
@@ -55,25 +64,28 @@ export async function GET(req: NextRequest) {
     })
   } catch (error) {
     logError('sensing_scan_error', error)
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : 'Internal error',
-      },
-      { status: 500 },
-    )
+    return fail(error instanceof Error ? error.message : 'Internal error', 500)
   }
 }
 
 export async function POST(req: NextRequest) {
+  const rl = checkRateLimit(`sensing-scan:${extractClientIp(req.headers)}`, RATE_LIMIT_PRESETS.strict);
+  if (!rl.allowed) return rateLimited(Math.ceil((rl.retryAfterMs ?? 60000) / 1000));
+
+  const authCheck = requireAdmin(req);
+  if (!authCheck.ok) return authCheck.response;
+
+  let body: Record<string, unknown>
   try {
-    const body = await req.json()
+    body = await req.json()
+  } catch {
+    return fail('invalid_body')
+  }
+
+  try {
     const signature = String(body.signature || '').trim()
     if (!signature) {
-      return NextResponse.json(
-        { ok: false, error: 'signature is required' },
-        { status: 400 },
-      )
+      return fail('signature is required')
     }
     const minCount = Number(body.minCount || 2)
     const scanWindow = Number(body.window || 500)
@@ -86,13 +98,7 @@ export async function POST(req: NextRequest) {
     })
     const target = clusters.find((c) => c.signature === signature)
     if (!target) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: `cluster "${signature}" not found (it may have dropped below minCount)`,
-        },
-        { status: 404 },
-      )
+      return notFound(`Cluster "${signature}"`)
     }
 
     // Pick the most common language in the cluster as the candidate language.
@@ -134,21 +140,15 @@ export async function POST(req: NextRequest) {
         sampleQuery: target.sampleQuery,
       },
     })
-    console.log('SENSING_CANDIDATE_CREATED', {
+    devLog('SENSING_CANDIDATE_CREATED', {
       id: candidate.id,
       signature,
       clusterSize: target.count,
       dominantLang,
     })
-    return NextResponse.json({ ok: true, candidate, cluster: target })
+    return ok({ candidate, cluster: target }, 201)
   } catch (error) {
     logError('sensing_scan_post_error', error)
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : 'Internal error',
-      },
-      { status: 500 },
-    )
+    return fail(error instanceof Error ? error.message : 'Internal error', 500)
   }
 }

@@ -1,0 +1,26 @@
+# .gitleaks.toml
+# 模板文件 — 需要安装 gitleaks 才能生效（当前只生成配置，不代表扫描已启用）
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "openai-key"
+description = "OpenAI API Key"
+regex = '''sk-[a-zA-Z0-9]{20,}'''
+tags = ["key", "openai"]
+
+[[rules]]
+id = "supabase-service-key"
+description = "Supabase service role key"
+regex = '''eyJ[a-zA-Z0-9_-]{100,}'''
+tags = ["key", "supabase"]
+
+[[rules]]
+id = "jwt-secret"
+description = "JTG JWT Secret"
+regex = '''JTG_JWT_SECRET\s*=\s*[^\s]{10,}'''
+tags = ["key", "jwt"]
+
+[allowlist]
+paths = [".env.example", "audit/", ".gitleaks.toml"]

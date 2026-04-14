@@ -18,12 +18,13 @@
  *   §13 returns structured errors with stable codes
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import {
   getFaqCandidate,
   setCandidateState,
   insertEvent,
 } from '@/lib/db/tables'
+import { requireAdmin } from '@/lib/auth/admin-guard'
 import { canTransition } from '@/lib/candidate/state'
 import type { CandidateState } from '@/lib/domain/enums'
 import { CANDIDATE_STATES } from '@/lib/domain/enums'
@@ -32,6 +33,8 @@ import {
   type ReviewDecision,
 } from '@/lib/domain/writeback'
 import { logError } from '@/lib/audit/logger'
+import { ok, fail, notFound, rateLimited } from '@/lib/utils/api-response'
+import { checkRateLimit, extractClientIp, RATE_LIMIT_PRESETS } from '@/lib/security/rate-limit'
 
 type Ctx = { params: Promise<{ id: string }> }
 
@@ -40,12 +43,8 @@ function err(
   code: string,
   message: string,
   status: number,
-  relatedIds: Record<string, unknown> = {},
 ) {
-  return NextResponse.json(
-    { ok: false, error: { code, message, relatedIds } },
-    { status },
-  )
+  return fail(message, status, code)
 }
 
 function coerceTo(body: Record<string, unknown>): CandidateState | null {
@@ -61,6 +60,12 @@ function coerceTo(body: Record<string, unknown>): CandidateState | null {
 }
 
 export async function PATCH(req: NextRequest, ctx: Ctx) {
+  const rl = checkRateLimit(`faq-candidate:${extractClientIp(req.headers)}`, RATE_LIMIT_PRESETS.api);
+  if (!rl.allowed) return rateLimited(Math.ceil((rl.retryAfterMs ?? 60000) / 1000));
+
+  const authCheck = requireAdmin(req);
+  if (!authCheck.ok) return authCheck.response;
+
   try {
     const { id } = await ctx.params
     const body = (await req.json()) as Record<string, unknown>
@@ -70,7 +75,6 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
         'INVALID_INPUT',
         `body must include a valid "to" state; allowed: ${CANDIDATE_STATES.join(', ')}`,
         400,
-        { candidateId: id },
       )
     }
 
@@ -82,25 +86,18 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
         'PUBLISH_WRONG_ENDPOINT',
         'publish must go through POST /api/review/faq-candidates/[id]/publish',
         400,
-        { candidateId: id },
       )
     }
 
     const candidate = getFaqCandidate(id)
     if (!candidate) {
-      return err('CANDIDATE_NOT_FOUND', `candidate ${id} not found`, 404, {
-        candidateId: id,
-      })
+      return err('CANDIDATE_NOT_FOUND', `candidate ${id} not found`, 404)
     }
 
     const from = candidate.state ?? 'NEW'
     const check = canTransition(from, to)
     if (!check.ok) {
-      return err(check.code, check.message, 409, {
-        candidateId: id,
-        from,
-        to,
-      })
+      return err(check.code, check.message, 409)
     }
 
     const reviewNote =
@@ -126,7 +123,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
         candidateDecision as Partial<ReviewDecision> & { toState?: string },
       )
       if (!check.ok) {
-        return err(check.code, check.message, 400, { candidateId: id })
+        return err(check.code, check.message, 400)
       }
       decision = check.decision
     }
@@ -135,9 +132,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       reviewNote: decision?.reviewNote ?? reviewNote,
     })
     if (!updated) {
-      return err('PERSIST_FAILED', 'failed to persist state transition', 500, {
-        candidateId: id,
-      })
+      return err('PERSIST_FAILED', 'failed to persist state transition', 500)
     }
 
     insertEvent({
@@ -157,19 +152,9 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       },
     })
 
-    return NextResponse.json({ ok: true, candidate: updated, decision })
+    return ok({ candidate: updated, decision })
   } catch (error) {
     logError('faq_candidate_review_error', error)
-    return NextResponse.json(
-      {
-        ok: false,
-        error: {
-          code: 'INTERNAL',
-          message: error instanceof Error ? error.message : 'Internal error',
-          relatedIds: {},
-        },
-      },
-      { status: 500 },
-    )
+    return fail(error instanceof Error ? error.message : 'Internal error', 500, 'INTERNAL')
   }
 }

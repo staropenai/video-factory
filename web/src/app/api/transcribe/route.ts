@@ -24,9 +24,17 @@
  * crash.
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { ok, fail, rateLimited } from '@/lib/utils/api-response'
 import { openai, openaiAvailable, env as openaiEnv } from '@/lib/ai/openai'
 import { logError } from '@/lib/audit/logger'
+import {
+  checkRateLimit,
+  extractClientIp,
+  RATE_LIMIT_PRESETS,
+} from '@/lib/security/rate-limit'
+import { resolveIdentity } from '@/lib/auth/identity'
+import { consumeQuota } from '@/lib/quota/tracker'
 
 type Lang = 'en' | 'zh' | 'ja'
 
@@ -35,14 +43,29 @@ function normalizeLang(v: unknown): Lang {
 }
 
 export async function POST(req: NextRequest) {
+  // Per-IP rate limit — AI-consuming endpoint, use "auth" preset (10 req/min).
+  const rl = checkRateLimit(
+    `transcribe:${extractClientIp(req.headers)}`,
+    RATE_LIMIT_PRESETS.auth,
+  );
+  if (!rl.allowed) {
+    return rateLimited(Math.ceil((rl.retryAfterMs ?? 60000) / 1000));
+  }
+
+  // Quota enforcement — only when OpenAI audio is actually enabled.
+  if (openaiEnv.ENABLE_AUDIO_INPUT && openaiAvailable && openai) {
+    const identity = await resolveIdentity();
+    const status = await consumeQuota(identity.uid, identity.isAuthenticated, 'en');
+    if (status.blocked) {
+      return fail("quota_exceeded", 429, "QUOTA_EXCEEDED");
+    }
+  }
+
   const startedAt = Date.now()
   try {
     const contentType = req.headers.get('content-type') || ''
     if (!contentType.includes('multipart/form-data')) {
-      return NextResponse.json(
-        { ok: false, error: 'multipart/form-data required' },
-        { status: 400 },
-      )
+      return fail('multipart/form-data required')
     }
 
     const form = await req.formData()
@@ -50,15 +73,11 @@ export async function POST(req: NextRequest) {
     const language = normalizeLang(form.get('language'))
 
     if (!(file instanceof File)) {
-      return NextResponse.json(
-        { ok: false, error: 'file is required' },
-        { status: 400 },
-      )
+      return fail('file is required')
     }
 
     if (!openaiEnv.ENABLE_AUDIO_INPUT || !openaiAvailable || !openai) {
-      return NextResponse.json({
-        ok: true,
+      return ok({
         text: '',
         language,
         source: 'fallback',
@@ -77,8 +96,7 @@ export async function POST(req: NextRequest) {
         language,
       })
       const text = String((resp as { text?: string }).text || '').trim()
-      return NextResponse.json({
-        ok: true,
+      return ok({
         text,
         language,
         source: 'openai',
@@ -86,8 +104,7 @@ export async function POST(req: NextRequest) {
       })
     } catch (err) {
       logError('transcribe_openai_error', err)
-      return NextResponse.json({
-        ok: true,
+      return ok({
         text: '',
         language,
         source: 'fallback',
@@ -99,12 +116,6 @@ export async function POST(req: NextRequest) {
     }
   } catch (error) {
     logError('transcribe_error', error)
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : 'Internal error',
-      },
-      { status: 500 },
-    )
+    return fail(error instanceof Error ? error.message : 'Internal error', 500)
   }
 }

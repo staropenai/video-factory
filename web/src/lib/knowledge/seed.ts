@@ -2306,6 +2306,25 @@ const TIER_BY_SUBTOPIC: Record<string, FaqTier> = {
   "garbage-day": "B",
   "move-in-checklist": "B",
   "mobile-sim": "B",
+  // Tier B: renting fundamentals — standard explanations, no dynamic dependency.
+  "deposit": "B",
+  "key-money": "B",
+  "guarantor": "B",
+  "renewal": "B",
+  "utilities": "B",
+  "move-in-cost": "B",
+  // Tier B: daily life procedures.
+  "bank-account": "B",
+  "health-insurance": "B",
+  // Tier B: troubleshooting (deterministic step-by-step).
+  "power-outage": "B",
+  "water-leak": "B",
+  "no-hot-water": "B",
+  "no-gas": "B",
+  "wifi-down": "B",
+  "broken-appliance": "B",
+  "landlord-contact": "B",
+  "emergency-repair": "B",
 };
 
 /** Resolve the effective tier of a seed FAQ entry. */
@@ -2314,10 +2333,34 @@ export function resolveTier(faq: FaqEntry): FaqTier {
   return TIER_BY_SUBTOPIC[faq.subtopic] ?? "C";
 }
 
-export const SEED_FAQS: FaqEntry[] = LIVE_FAQS.map((f) => ({
-  ...f,
-  tier: f.tier ?? TIER_BY_SUBTOPIC[f.subtopic] ?? "C",
-}));
+// v9 — Import staropenai FAQ bridge for expanded coverage.
+import { convertAll, type StarFaqData } from '@/lib/knowledge/faq-sync'
+
+// Lazy-load star FAQs. The JSON is small (~13 topics) and loaded once at
+// module init. If the file isn't available (e.g. during tests that don't
+// have the staropenai_v2 directory), we silently return an empty array.
+let _starFaqs: FaqEntry[] | null = null
+function getStarFaqs(): FaqEntry[] {
+  if (_starFaqs !== null) return _starFaqs
+  try {
+    // Dynamic require avoids build-time resolution issues. The FAQ data
+    // is a static JSON file that doesn't change at runtime.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const data = require('../../../../staropenai_v2/data/faq_v2.json') as StarFaqData
+    _starFaqs = convertAll(data)
+  } catch {
+    _starFaqs = []
+  }
+  return _starFaqs
+}
+
+export const SEED_FAQS: FaqEntry[] = [
+  ...LIVE_FAQS.map((f) => ({
+    ...f,
+    tier: (f.tier ?? TIER_BY_SUBTOPIC[f.subtopic] ?? "C") as FaqTier,
+  })),
+  ...getStarFaqs(),
+];
 
 /** Normalize and expand a query using synonym groups. */
 export function expandQuery(raw: string): Set<string> {

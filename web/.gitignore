@@ -44,3 +44,10 @@ next-env.d.ts
 
 # patent — confidential parameters (θ values, weights, decay functions)
 .patent-internal/
+
+# security — private keys and secrets directories
+*.key
+secrets/
+
+# sentry
+.sentryclirc

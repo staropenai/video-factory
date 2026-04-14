@@ -14,7 +14,7 @@
  * Both paths validate input and return structured errors (Spec §13).
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import {
   insertEvidence,
   listEvidence,
@@ -27,6 +27,9 @@ import {
   type EvidenceSearchQuery,
 } from '@/lib/evidence/registry'
 import { logError } from '@/lib/audit/logger'
+import { ok, fail, rateLimited } from '@/lib/utils/api-response'
+import { checkRateLimit, extractClientIp, RATE_LIMIT_PRESETS } from '@/lib/security/rate-limit'
+import { sanitizeInput, stripControlChars } from '@/lib/utils/sanitize'
 
 // Valid values for validation.
 const VALID_TYPES: EvidenceType[] = [
@@ -43,12 +46,8 @@ function err(
   code: string,
   message: string,
   status: number,
-  relatedIds: Record<string, unknown> = {},
 ) {
-  return NextResponse.json(
-    { ok: false, error: { code, message, relatedIds } },
-    { status },
-  )
+  return fail(message, status, code)
 }
 
 // ---------------------------------------------------------------------
@@ -56,6 +55,9 @@ function err(
 // ---------------------------------------------------------------------
 
 export async function GET(req: NextRequest) {
+  const rl = checkRateLimit(`evidence:${extractClientIp(req.headers)}`, RATE_LIMIT_PRESETS.ai);
+  if (!rl.allowed) return rateLimited(Math.ceil((rl.retryAfterMs ?? 60000) / 1000));
+
   try {
     const url = new URL(req.url)
     const topicTag = url.searchParams.get('topicTag')
@@ -82,7 +84,7 @@ export async function GET(req: NextRequest) {
       if (excludeExpired === 'true') query.excludeExpired = true
 
       const results = searchEvidence(query)
-      return NextResponse.json({ ok: true, count: results.length, records: results })
+      return ok({ count: results.length, records: results })
     }
 
     // Simple list with optional filters.
@@ -102,13 +104,10 @@ export async function GET(req: NextRequest) {
     if (topicTag) filter.topicTag = topicTag
 
     const records = listEvidence(Object.keys(filter).length > 0 ? filter : undefined)
-    return NextResponse.json({ ok: true, count: records.length, records })
+    return ok({ count: records.length, records })
   } catch (error) {
     logError('evidence_list_error', error)
-    return NextResponse.json(
-      { ok: false, error: { code: 'INTERNAL', message: error instanceof Error ? error.message : 'Internal error', relatedIds: {} } },
-      { status: 500 },
-    )
+    return fail(error instanceof Error ? error.message : 'Internal error', 500, 'INTERNAL')
   }
 }
 
@@ -117,6 +116,9 @@ export async function GET(req: NextRequest) {
 // ---------------------------------------------------------------------
 
 export async function POST(req: NextRequest) {
+  const rl = checkRateLimit(`evidence:${extractClientIp(req.headers)}`, RATE_LIMIT_PRESETS.ai);
+  if (!rl.allowed) return rateLimited(Math.ceil((rl.retryAfterMs ?? 60000) / 1000));
+
   try {
     const body = (await req.json()) as Record<string, unknown>
 
@@ -145,23 +147,20 @@ export async function POST(req: NextRequest) {
 
     const record = insertEvidence({
       type: body.type as EvidenceType,
-      topicTags: body.topicTags as string[],
-      location: typeof body.location === 'string' ? body.location : null,
+      topicTags: (body.topicTags as string[]).map((t: string) => stripControlChars(sanitizeInput(String(t), 120))),
+      location: typeof body.location === 'string' ? stripControlChars(sanitizeInput(body.location, 200)) : null,
       dateCollected: body.dateCollected as string,
-      contentSummary: body.contentSummary as string,
-      sourceUrl: typeof body.sourceUrl === 'string' ? body.sourceUrl : null,
-      filePath: typeof body.filePath === 'string' ? body.filePath : null,
+      contentSummary: stripControlChars(sanitizeInput(body.contentSummary as string, 4000)),
+      sourceUrl: typeof body.sourceUrl === 'string' ? sanitizeInput(body.sourceUrl, 2000) : null,
+      filePath: typeof body.filePath === 'string' ? sanitizeInput(body.filePath, 500) : null,
       confidenceLevel: body.confidenceLevel as EvidenceConfidence,
       expiryDate: typeof body.expiryDate === 'string' ? body.expiryDate : null,
       linkedCardIds: Array.isArray(body.linkedCardIds) ? body.linkedCardIds as string[] : [],
     })
 
-    return NextResponse.json({ ok: true, record }, { status: 201 })
+    return ok({ record }, 201)
   } catch (error) {
     logError('evidence_create_error', error)
-    return NextResponse.json(
-      { ok: false, error: { code: 'INTERNAL', message: error instanceof Error ? error.message : 'Internal error', relatedIds: {} } },
-      { status: 500 },
-    )
+    return fail(error instanceof Error ? error.message : 'Internal error', 500, 'INTERNAL')
   }
 }

@@ -45,9 +45,9 @@ layer6_escalation_rate:
   alert_threshold: ">8%"
 
 tier_shortcut_min_score:
-  current: 0.77
-  source: "src/lib/knowledge/retrieve.ts TIER_SHORTCUT_MIN_SCORE"
-  note: "Tier A/B cards with score >= 0.77 bypass LLM entirely"
+  current: "[REDACTED — patent-sensitive, see source code]"
+  source: "src/lib/knowledge/retrieve.ts (internal constant)"
+  note: "Tier A/B cards exceeding threshold bypass LLM entirely (value in env/code only)"
 ```
 
 ## AI Quality Metrics

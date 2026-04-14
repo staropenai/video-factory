@@ -7,9 +7,14 @@
  * - ts_engine: confirms TS rule engine loads
  */
 
-import { NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { ok, rateLimited } from '@/lib/utils/api-response'
+import { checkRateLimit, extractClientIp, RATE_LIMIT_PRESETS } from '@/lib/security/rate-limit'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const rl = checkRateLimit(`health:${extractClientIp(req.headers)}`, RATE_LIMIT_PRESETS.api);
+  if (!rl.allowed) return rateLimited(Math.ceil((rl.retryAfterMs ?? 60000) / 1000));
+
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'
   let dbStatus = 'unknown'
 
@@ -35,8 +40,7 @@ export async function GET() {
     tsEngineStatus = 'error'
   }
 
-  return NextResponse.json({
-    ok: true,
+  return ok({
     app: 'healthy',
     db: dbStatus,
     ts_engine: tsEngineStatus,

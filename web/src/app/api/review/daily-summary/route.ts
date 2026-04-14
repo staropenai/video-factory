@@ -17,12 +17,13 @@
  * writes anything and never throws on empty state.
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import {
   listFaqCandidates,
   listEvents,
   type FaqCandidateRow,
 } from '@/lib/db/tables'
+import { requireAdmin } from '@/lib/auth/admin-guard'
 import type { CandidateState } from '@/lib/domain/enums'
 import type {
   DailyReviewSummary,
@@ -30,6 +31,8 @@ import type {
   StaleCandidatePointer,
 } from '@/lib/domain/writeback'
 import { logError } from '@/lib/audit/logger'
+import { ok, fail, rateLimited } from '@/lib/utils/api-response'
+import { checkRateLimit, extractClientIp, RATE_LIMIT_PRESETS } from '@/lib/security/rate-limit'
 
 const NON_TERMINAL: ReadonlyArray<CandidateState> = [
   'NEW',
@@ -102,6 +105,12 @@ function findStale(
 }
 
 export async function GET(req: NextRequest) {
+  const rl = checkRateLimit(`review-summary:${extractClientIp(req.headers)}`, RATE_LIMIT_PRESETS.api);
+  if (!rl.allowed) return rateLimited(Math.ceil((rl.retryAfterMs ?? 60000) / 1000));
+
+  const authCheck = requireAdmin(req);
+  if (!authCheck.ok) return authCheck.response;
+
   try {
     const url = new URL(req.url)
     const sinceParam = url.searchParams.get('since')
@@ -144,19 +153,9 @@ export async function GET(req: NextRequest) {
       rejectedToday,
     }
 
-    return NextResponse.json({ ok: true, summary, since })
+    return ok({ summary, since })
   } catch (error) {
     logError('daily_summary_error', error)
-    return NextResponse.json(
-      {
-        ok: false,
-        error: {
-          code: 'INTERNAL',
-          message: error instanceof Error ? error.message : 'Internal error',
-          relatedIds: {},
-        },
-      },
-      { status: 500 },
-    )
+    return fail(error instanceof Error ? error.message : 'Internal error', 500, 'INTERNAL')
   }
 }

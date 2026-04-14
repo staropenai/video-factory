@@ -1,17 +1,32 @@
 @import "tailwindcss";
+@import "../styles/homepage-mobile.css";
 
 :root {
-  --background: #fafafa;
-  --foreground: #18181b;
-  --muted: #71717a;
-  --border: #e4e4e7;
-  --accent: #2563eb;
-  --accent-light: #eff6ff;
+  --background: #f8faf8;
+  --foreground: #1a2e1a;
+  --muted: #5c6b5c;
+  --border: #d4ddd4;
+  --accent: #1b5e3b;
+  --accent-light: #eef5f0;
   --surface: #ffffff;
   --surface-elevated: #ffffff;
   --success: #16a34a;
   --warning: #d97706;
   --danger: #dc2626;
+
+  /* Homepage design tokens (V3 spec) */
+  --color-text-primary: #1a2e1a;
+  --color-text-secondary: #5c6b5c;
+  --color-text-tertiary: #8a9a8a;
+  --color-text-danger: #a32d2d;
+  --color-background-primary: #ffffff;
+  --color-background-secondary: #f8faf8;
+  --color-background-danger: #fcebeb;
+  --color-border-secondary: #d4ddd4;
+  --color-border-tertiary: #e8ede8;
+  --color-border-danger: #f09595;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
 }
 
 @theme inline {

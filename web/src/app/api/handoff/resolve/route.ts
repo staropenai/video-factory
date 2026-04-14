@@ -22,15 +22,24 @@
  * cold starts; this is the explicit Phase-1 trade-off.
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { ok, fail, notFound, rateLimited } from '@/lib/utils/api-response'
+import { checkRateLimit, extractClientIp, RATE_LIMIT_PRESETS } from '@/lib/security/rate-limit'
 import {
   resolveHandoffRow,
   insertFaqCandidate,
   getHandoff,
 } from '@/lib/db/tables'
 import { logError, logEscalation } from '@/lib/audit/logger'
+import { requireAdmin } from '@/lib/auth/admin-guard'
 
 export async function POST(req: NextRequest) {
+  const rl = checkRateLimit(`handoff:${extractClientIp(req.headers)}`, RATE_LIMIT_PRESETS.ai);
+  if (!rl.allowed) return rateLimited(Math.ceil((rl.retryAfterMs ?? 60000) / 1000));
+
+  const authCheck = requireAdmin(req);
+  if (!authCheck.ok) return authCheck.response;
+
   try {
     const body = await req.json()
     const id = String(body.id || '').trim()
@@ -42,15 +51,15 @@ export async function POST(req: NextRequest) {
     const candidateAnswerOverride = String(body.candidateAnswer || '').trim()
 
     if (!id) {
-      return NextResponse.json({ error: 'id is required' }, { status: 400 })
+      return fail('id is required')
     }
     if (!humanReply) {
-      return NextResponse.json({ error: 'humanReply is required' }, { status: 400 })
+      return fail('humanReply is required')
     }
 
     const existing = getHandoff(id)
     if (!existing) {
-      return NextResponse.json({ error: 'handoff not found' }, { status: 404 })
+      return notFound('handoff')
     }
 
     // Optionally create the FAQ candidate first so we can link its id into
@@ -77,7 +86,7 @@ export async function POST(req: NextRequest) {
       faqCandidateId: candidateId,
     })
     if (!updated) {
-      return NextResponse.json({ error: 'handoff not found' }, { status: 404 })
+      return notFound('handoff')
     }
 
     logEscalation(id, 'handoff_resolved', resolvedBy, {
@@ -87,12 +96,9 @@ export async function POST(req: NextRequest) {
       faqCandidateId: candidateId,
     })
 
-    return NextResponse.json({ ok: true, entry: updated, faqCandidateId: candidateId })
+    return ok({ entry: updated, faqCandidateId: candidateId })
   } catch (error) {
     logError('handoff_resolve_error', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal error' },
-      { status: 500 },
-    )
+    return fail(error instanceof Error ? error.message : 'Internal error', 500)
   }
 }

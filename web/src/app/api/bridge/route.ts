@@ -24,7 +24,7 @@
  * can tell which path answered.
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import {
   validateBridgeInput,
   validateBridgeOutput,
@@ -37,24 +37,24 @@ import {
   type JapaneseTemplate,
   type UserLocale,
 } from '@/lib/domain/language-bridge'
+import { requireAdmin } from '@/lib/auth/admin-guard'
 import { insertEvent } from '@/lib/db/tables'
 import { logError } from '@/lib/audit/logger'
 import { openai, openaiAvailable, env as openaiEnv } from '@/lib/ai/openai'
+import { checkRateLimit, extractClientIp, RATE_LIMIT_PRESETS } from '@/lib/security/rate-limit'
 import { checkPromptInjection, sanitizeForLog } from '@/lib/security/prompt-injection'
 import { buildSecurityEvent, classifySecuritySeverity, logSecurityEvent } from '@/lib/security/event-log'
 import { recordBridgeSession } from '@/lib/patent/metrics-collector'
+import { ok, fail, rateLimited } from '@/lib/utils/api-response'
+import { sanitizeInput, stripControlChars } from '@/lib/utils/sanitize'
 
 /** Stable structured-error builder (Spec §13). */
 function err(
   code: string,
   message: string,
   status: number,
-  relatedIds: Record<string, unknown> = {},
 ) {
-  return NextResponse.json(
-    { ok: false, error: { code, message, relatedIds } },
-    { status },
-  )
+  return fail(message, status, code)
 }
 
 // ---------------------------------------------------------------------
@@ -205,11 +205,22 @@ async function tryLlmBridge(
 // ---------------------------------------------------------------------
 
 export async function POST(req: NextRequest) {
-  try {
-    const body = (await req.json()) as Record<string, unknown>
+  const rl = checkRateLimit(`bridge:${extractClientIp(req.headers)}`, RATE_LIMIT_PRESETS.ai);
+  if (!rl.allowed) return rateLimited(Math.ceil((rl.retryAfterMs ?? 60000) / 1000));
 
+  const authCheck = requireAdmin(req);
+  if (!authCheck.ok) return authCheck.response;
+
+  let body: Record<string, unknown>
+  try {
+    body = (await req.json()) as Record<string, unknown>
+  } catch {
+    return fail('invalid_body')
+  }
+
+  try {
     // V6 §P0-3 — Prompt injection detection on raw text input.
-    const rawText = String(body.rawText ?? '').trim()
+    const rawText = stripControlChars(sanitizeInput(String(body.rawText ?? '')))
     if (rawText) {
       const injCheck = checkPromptInjection(rawText)
       if (injCheck.detected && injCheck.highestSeverity === 'high') {
@@ -313,20 +324,10 @@ export async function POST(req: NextRequest) {
       logError('patent_bridge_metric_error', e)
     }
 
-    return NextResponse.json({ ok: true, source, output })
+    return ok({ source, output })
   } catch (error) {
     logError('bridge_route_error', error)
-    return NextResponse.json(
-      {
-        ok: false,
-        error: {
-          code: 'INTERNAL',
-          message: error instanceof Error ? error.message : 'Internal error',
-          relatedIds: {},
-        },
-      },
-      { status: 500 },
-    )
+    return fail(error instanceof Error ? error.message : 'Internal error', 500, 'INTERNAL')
   }
 }
 

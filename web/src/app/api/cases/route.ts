@@ -8,7 +8,7 @@
  * handoff happens in /api/router; this endpoint is for the /cases UI.
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import {
   insertCase,
   listCases,
@@ -16,6 +16,9 @@ import {
   type CaseRow,
 } from '@/lib/db/tables'
 import { logError } from '@/lib/audit/logger'
+import { ok, fail, rateLimited } from '@/lib/utils/api-response'
+import { sanitizeInput, stripControlChars } from '@/lib/utils/sanitize'
+import { checkRateLimit, extractClientIp, RATE_LIMIT_PRESETS } from '@/lib/security/rate-limit'
 
 const STATUSES: CaseStatus[] = [
   'open',
@@ -31,6 +34,9 @@ function normalizeLang(v: unknown): Lang {
 }
 
 export async function GET(req: NextRequest) {
+  const rl = checkRateLimit(`cases:${extractClientIp(req.headers)}`, RATE_LIMIT_PRESETS.api);
+  if (!rl.allowed) return rateLimited(Math.ceil((rl.retryAfterMs ?? 60000) / 1000));
+
   try {
     const url = new URL(req.url)
     const statusParam = url.searchParams.get('status') || undefined
@@ -47,28 +53,22 @@ export async function GET(req: NextRequest) {
         : undefined
 
     const rows = listCases({ status, assignee, language })
-    return NextResponse.json({ ok: true, cases: rows, total: rows.length })
+    return ok({ cases: rows, total: rows.length })
   } catch (error) {
     logError('cases_list_error', error)
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : 'Internal error',
-      },
-      { status: 500 },
-    )
+    return fail(error instanceof Error ? error.message : 'Internal error', 500)
   }
 }
 
 export async function POST(req: NextRequest) {
+  const rl = checkRateLimit(`cases:${extractClientIp(req.headers)}`, RATE_LIMIT_PRESETS.api);
+  if (!rl.allowed) return rateLimited(Math.ceil((rl.retryAfterMs ?? 60000) / 1000));
+
   try {
     const body = await req.json()
-    const queryText = String(body.queryText || '').trim()
+    const queryText = sanitizeInput(String(body.queryText || ''), 1000)
     if (!queryText) {
-      return NextResponse.json(
-        { ok: false, error: 'queryText is required' },
-        { status: 400 },
-      )
+      return fail('queryText is required')
     }
 
     const language = normalizeLang(body.language)
@@ -81,14 +81,14 @@ export async function POST(req: NextRequest) {
       CaseRow,
       'id' | 'createdAt' | 'updatedAt' | 'status' | 'resolvedAt'
     > & { status?: CaseStatus } = {
-      queryText: queryText.slice(0, 1000),
+      queryText: stripControlChars(queryText),
       language,
-      category: body.category ? String(body.category).slice(0, 80) : null,
-      subtopic: body.subtopic ? String(body.subtopic).slice(0, 80) : null,
+      category: body.category ? stripControlChars(sanitizeInput(String(body.category), 80)) : null,
+      subtopic: body.subtopic ? stripControlChars(sanitizeInput(String(body.subtopic), 80)) : null,
       riskLevel: String(body.riskLevel || 'unknown').slice(0, 20),
       assignee: body.assignee ? String(body.assignee).slice(0, 80) : null,
       dueDate: body.dueDate ? String(body.dueDate).slice(0, 40) : null,
-      notes: body.notes ? String(body.notes).slice(0, 2000) : null,
+      notes: body.notes ? stripControlChars(sanitizeInput(String(body.notes), 2000)) : null,
       sourceUserQueryId: body.sourceUserQueryId
         ? String(body.sourceUserQueryId)
         : null,
@@ -100,15 +100,9 @@ export async function POST(req: NextRequest) {
     }
 
     const created = insertCase(row)
-    return NextResponse.json({ ok: true, case: created })
+    return ok({ case: created })
   } catch (error) {
     logError('cases_create_error', error)
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : 'Internal error',
-      },
-      { status: 500 },
-    )
+    return fail(error instanceof Error ? error.message : 'Internal error', 500)
   }
 }

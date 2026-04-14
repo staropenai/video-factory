@@ -157,7 +157,7 @@ async function main(): Promise<number> {
   })
 
   run('Test-02', '§P1-1 Tier A block has no steps or llmEnrichment fields', (f, a) => {
-    const block = renderCard(tierACard) as Record<string, unknown>
+    const block = renderCard(tierACard) as unknown as Record<string, unknown>
     a.has_steps = 'steps' in block
     a.has_llm_enrichment = 'llmEnrichment' in block
     assertEq('has_steps', 'steps' in block, false, f)
@@ -251,7 +251,7 @@ async function main(): Promise<number> {
 
   run('Test-08', '§P1-2 validateBridgeInput rejects voice inputType', (f, a) => {
     const r = validateBridgeInput({
-      inputType: 'voice',
+      inputType: 'voice' as 'text',
       rawText: 'hello',
       userLocale: 'en',
     })

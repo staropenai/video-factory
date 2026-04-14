@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { COMPANY } from "@/lib/company";
 
 const navLinks = [
-  { href: "/about", label: "About" },
-  { href: "/work", label: "Work" },
+  { href: "/zh-Hans", label: "Guide" },
+  { href: "/try", label: "Ask AI" },
   { href: "/contact", label: "Contact" },
 ];
 
@@ -19,7 +20,7 @@ export function Navigation() {
           href="/"
           className="text-lg font-semibold tracking-tight hover:opacity-80 transition-opacity"
         >
-          StartOpenAI
+          {COMPANY.brand}
         </Link>
 
         {/* Desktop nav */}
@@ -37,7 +38,7 @@ export function Navigation() {
             href="/contact"
             className="text-sm px-4 py-2 bg-foreground text-surface rounded-full hover:opacity-90 transition-opacity"
           >
-            Get in touch
+            Get help
           </Link>
         </div>
 
@@ -79,7 +80,7 @@ export function Navigation() {
             onClick={() => setMobileOpen(false)}
             className="block mt-2 text-center py-3 bg-foreground text-surface rounded-full"
           >
-            Get in touch
+            Get help
           </Link>
         </div>
       )}

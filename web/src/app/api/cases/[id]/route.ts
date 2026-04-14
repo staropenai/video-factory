@@ -7,9 +7,12 @@
  * Next.js 16 App Router: context.params is a Promise that must be awaited.
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getCase, updateCase, type CaseStatus, type CaseRow } from '@/lib/db/tables'
 import { logError } from '@/lib/audit/logger'
+import { ok, fail, notFound, rateLimited } from '@/lib/utils/api-response'
+import { sanitizeInput } from '@/lib/utils/sanitize'
+import { checkRateLimit, extractClientIp, RATE_LIMIT_PRESETS } from '@/lib/security/rate-limit'
 
 const STATUSES: CaseStatus[] = [
   'open',
@@ -21,34 +24,36 @@ const STATUSES: CaseStatus[] = [
 
 type Ctx = { params: Promise<{ id: string }> }
 
-export async function GET(_req: NextRequest, ctx: Ctx) {
+export async function GET(req: NextRequest, ctx: Ctx) {
+  const rl = checkRateLimit(`case-detail:${extractClientIp(req.headers)}`, RATE_LIMIT_PRESETS.api);
+  if (!rl.allowed) return rateLimited(Math.ceil((rl.retryAfterMs ?? 60000) / 1000));
+
   try {
     const { id } = await ctx.params
     const row = getCase(id)
     if (!row) {
-      return NextResponse.json(
-        { ok: false, error: 'case not found' },
-        { status: 404 },
-      )
+      return notFound('Case')
     }
-    return NextResponse.json({ ok: true, case: row })
+    return ok({ case: row })
   } catch (error) {
     logError('cases_get_error', error)
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : 'Internal error',
-      },
-      { status: 500 },
-    )
+    return fail(error instanceof Error ? error.message : 'Internal error', 500)
   }
 }
 
 export async function PATCH(req: NextRequest, ctx: Ctx) {
-  try {
-    const { id } = await ctx.params
-    const body = await req.json()
+  const rl = checkRateLimit(`case-detail:${extractClientIp(req.headers)}`, RATE_LIMIT_PRESETS.api);
+  if (!rl.allowed) return rateLimited(Math.ceil((rl.retryAfterMs ?? 60000) / 1000));
 
+  const { id } = await ctx.params
+  let body: Record<string, unknown>
+  try {
+    body = await req.json()
+  } catch {
+    return fail('invalid_body')
+  }
+
+  try {
     const patch: Partial<
       Pick<
         CaseRow,
@@ -65,22 +70,19 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     if (body.status !== undefined) {
       const s = String(body.status)
       if (!(STATUSES as string[]).includes(s)) {
-        return NextResponse.json(
-          { ok: false, error: `invalid status: ${s}` },
-          { status: 400 },
-        )
+        return fail(`invalid status: ${s}`)
       }
       patch.status = s as CaseStatus
     }
     if (body.assignee !== undefined)
-      patch.assignee = body.assignee ? String(body.assignee).slice(0, 80) : null
+      patch.assignee = body.assignee ? sanitizeInput(String(body.assignee), 200) : null
     if (body.dueDate !== undefined)
       patch.dueDate = body.dueDate ? String(body.dueDate).slice(0, 40) : null
     if (body.notes !== undefined)
-      patch.notes = body.notes ? String(body.notes).slice(0, 2000) : null
+      patch.notes = body.notes ? sanitizeInput(String(body.notes), 4000) : null
     if (body.resolutionSummary !== undefined)
       patch.resolutionSummary = body.resolutionSummary
-        ? String(body.resolutionSummary).slice(0, 2000)
+        ? sanitizeInput(String(body.resolutionSummary), 4000)
         : null
     if (body.category !== undefined)
       patch.category = body.category ? String(body.category).slice(0, 80) : null
@@ -89,20 +91,11 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 
     const updated = updateCase(id, patch)
     if (!updated) {
-      return NextResponse.json(
-        { ok: false, error: 'case not found' },
-        { status: 404 },
-      )
+      return notFound('Case')
     }
-    return NextResponse.json({ ok: true, case: updated })
+    return ok({ case: updated })
   } catch (error) {
     logError('cases_update_error', error)
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : 'Internal error',
-      },
-      { status: 500 },
-    )
+    return fail(error instanceof Error ? error.message : 'Internal error', 500)
   }
 }

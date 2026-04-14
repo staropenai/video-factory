@@ -25,7 +25,8 @@
  * endpoint: vetted writebacks → active library.
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { ok, fail, notFound, rateLimited } from '@/lib/utils/api-response'
 import {
   getHandoff,
   listUserFeedback,
@@ -34,6 +35,9 @@ import {
   type TemplateStatus,
 } from '@/lib/db/tables'
 import { logError } from '@/lib/audit/logger'
+import { devLog } from '@/lib/utils/dev-log'
+import { requireAdmin } from '@/lib/auth/admin-guard'
+import { checkRateLimit, extractClientIp, RATE_LIMIT_PRESETS } from '@/lib/security/rate-limit'
 
 type Lang = 'en' | 'zh' | 'ja'
 const STATUSES: TemplateStatus[] = ['draft', 'active', 'archived']
@@ -58,6 +62,12 @@ function normalizeTags(v: unknown): string[] {
 }
 
 export async function POST(req: NextRequest) {
+  const rl = checkRateLimit(`template-promote:${extractClientIp(req.headers)}`, RATE_LIMIT_PRESETS.api);
+  if (!rl.allowed) return rateLimited(Math.ceil((rl.retryAfterMs ?? 60000) / 1000));
+
+  const authCheck = requireAdmin(req);
+  if (!authCheck.ok) return authCheck.response;
+
   try {
     const body = await req.json()
     const sourceHandoffId = body.sourceHandoffId
@@ -76,19 +86,10 @@ export async function POST(req: NextRequest) {
     if (sourceHandoffId) {
       const hf = getHandoff(sourceHandoffId)
       if (!hf) {
-        return NextResponse.json(
-          { ok: false, error: `handoff ${sourceHandoffId} not found` },
-          { status: 404 },
-        )
+        return notFound(`Handoff ${sourceHandoffId}`)
       }
       if (hf.status !== 'resolved') {
-        return NextResponse.json(
-          {
-            ok: false,
-            error: 'only resolved handoffs can be promoted to templates',
-          },
-          { status: 400 },
-        )
+        return fail('only resolved handoffs can be promoted to templates')
       }
       defaultTitle = hf.queryText.slice(0, 120)
       defaultBody = hf.humanReply || ''
@@ -98,10 +99,7 @@ export async function POST(req: NextRequest) {
       const all = listUserFeedback(500)
       const fb = all.find((f) => f.id === sourceFeedbackId)
       if (!fb) {
-        return NextResponse.json(
-          { ok: false, error: `feedback ${sourceFeedbackId} not found` },
-          { status: 404 },
-        )
+        return notFound(`Feedback ${sourceFeedbackId}`)
       }
       defaultTitle = fb.queryText.slice(0, 120)
       defaultBody = fb.humanReply || ''
@@ -113,19 +111,11 @@ export async function POST(req: NextRequest) {
     const templateBody = String(body.body || defaultBody || '').trim()
 
     if (!title) {
-      return NextResponse.json(
-        { ok: false, error: 'title is required (and source had none)' },
-        { status: 400 },
-      )
+      return fail('title is required (and source had none)')
     }
     if (!templateBody) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            'body is required (source writeback was empty — cannot promote)',
-        },
-        { status: 400 },
+      return fail(
+        'body is required (source writeback was empty — cannot promote)',
       )
     }
 
@@ -156,22 +146,16 @@ export async function POST(req: NextRequest) {
     }
 
     const created = insertTemplate(row)
-    console.log('TEMPLATE_PROMOTED', {
+    devLog('TEMPLATE_PROMOTED', {
       id: created.id,
       sourceHandoffId,
       sourceFeedbackId,
       language: created.language,
       status: created.status,
     })
-    return NextResponse.json({ ok: true, template: created })
+    return ok({ template: created }, 201)
   } catch (error) {
     logError('templates_promote_error', error)
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : 'Internal error',
-      },
-      { status: 500 },
-    )
+    return fail(error instanceof Error ? error.message : 'Internal error', 500)
   }
 }

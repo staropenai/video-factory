@@ -1,0 +1,39 @@
+#!/bin/sh
+# JTG Security V2: Pre-commit gate
+# Runs key scanning + patent parameter leak check before every commit.
+# Full self_audit.sh is for CI; this hook is fast (< 2s).
+
+echo "🔒 JTG pre-commit security check..."
+
+# 1. Staged key scanning (fast — only checks diff)
+if git diff --cached 2>/dev/null | grep -qE 'sk-[a-zA-Z0-9]{20,}|eyJ[a-zA-Z0-9_-]{150,}'; then
+  echo "❌ BLOCKED: Possible API key or JWT detected in staged changes."
+  echo "   Remove the secret, then commit again."
+  exit 1
+fi
+
+# 2. Patent parameter leak (staged .md files only)
+STAGED_MD=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null | grep '\.md$' || true)
+if [ -n "$STAGED_MD" ]; then
+  LEAK=$(echo "$STAGED_MD" | xargs grep -lE '0\.77|TIER_SHORTCUT_MIN_SCORE' 2>/dev/null \
+    | grep -v "REDACTED\|self_audit\|self_verify" || true)
+  if [ -n "$LEAK" ]; then
+    echo "❌ BLOCKED: Patent-sensitive parameter found in staged .md files:"
+    echo "   $LEAK"
+    echo "   Redact the value before committing."
+    exit 1
+  fi
+fi
+
+# 3. Hardcoded secret patterns in staged .ts/.tsx files
+STAGED_TS=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null | grep -E '\.(ts|tsx)$' || true)
+if [ -n "$STAGED_TS" ]; then
+  HARD=$(echo "$STAGED_TS" | xargs grep -lnE 'OPENAI_API_KEY\s*=\s*"[^"]{10,}"|SERVICE_ROLE.*=.*"eyJ' 2>/dev/null || true)
+  if [ -n "$HARD" ]; then
+    echo "❌ BLOCKED: Hardcoded secret in staged TypeScript files:"
+    echo "   $HARD"
+    exit 1
+  fi
+fi
+
+echo "✅ Pre-commit checks passed."

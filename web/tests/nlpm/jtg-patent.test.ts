@@ -117,7 +117,7 @@ async function main(): Promise<number> {
 
   const params = {
     w1: 0.6, w2: 0.4, windowDays: 30,
-    coldStartDefault: 0.3, minHistoryCount: 3, targetLanguage: 'ja',
+    coldStartDefault: 0.3, minHistoryCount: 3, targetLanguage: 'ja' as const,
   }
 
   // ====================================================================

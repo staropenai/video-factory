@@ -22,10 +22,13 @@
  *   5. Every request is audited with a requestId.
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { randomUUID } from 'node:crypto'
+import { ok, fail, rateLimited } from '@/lib/utils/api-response'
+import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/security/rate-limit'
 
 import { runUnderstanding } from '@/lib/ai/understand'
+import { getCachedUnderstanding, setCachedUnderstanding } from '@/lib/ai/understanding-cache'
 import { renderFinalAnswer, faqToRetrieved } from '@/lib/ai/generate'
 import { retrieveFromLocal, retrieveFromLocalMulti } from '@/lib/knowledge/retrieve'
 import { decideRoute } from '@/lib/router/decide'
@@ -48,6 +51,15 @@ import { checkPromptInjection, sanitizeForLog } from '@/lib/security/prompt-inje
 import { buildSecurityEvent, classifySecuritySeverity, logSecurityEvent } from '@/lib/security/event-log'
 import { buildLayerHitEvent, recordLayerHit } from '@/lib/pipeline/writeback-hooks'
 import { recordRoutingDecision } from '@/lib/patent/metrics-collector'
+import { createEvidenceRecord, logEvidenceRecord } from '@/lib/patent/evidence-chain-logger'
+import { evaluateAll, JUDGMENT_RULES } from '@/lib/judgment/registry'
+import { optimizeRoute, featuresFromRouterContext } from '@/lib/routing/optimizer'
+import { validateOutput } from '@/lib/security/output-validator'
+import { scoreQuestionQuality } from '@/lib/ai/question-quality'
+import { resolveIdentity } from '@/lib/auth/identity'
+import { devLogJson } from '@/lib/utils/dev-log'
+import { validateMessageLength, enforceQuota, enforceRateLimit } from '@/app/api/router/quota-gate'
+import { extractClientIp } from '@/lib/security/rate-limit'
 
 import type { AnswerMode as RuleAnswerMode, RiskLevel } from '@/lib/router/types'
 import type { AnswerMode as ApiAnswerMode, AIUnderstandingResult, Language } from '@/lib/ai/types'
@@ -100,6 +112,9 @@ function reconcileDecision(
 }
 
 export async function POST(req: NextRequest) {
+  const rl = checkRateLimit(`router:${extractClientIp(req.headers)}`, RATE_LIMIT_PRESETS.ai);
+  if (!rl.allowed) return rateLimited(Math.ceil((rl.retryAfterMs ?? 60000) / 1000));
+
   const startedAt = Date.now()
   const requestId = randomUUID()
 
@@ -113,11 +128,16 @@ export async function POST(req: NextRequest) {
     const clarificationRounds = Number(body.clarificationRounds || 0)
 
     if (!message) {
-      return NextResponse.json(
-        { error: 'message is required', debug: { requestId } },
-        { status: 400 },
-      )
+      return fail('message is required')
     }
+
+    // Per-IP rate limit — AI routes (30 req/min)
+    const ipRateCheck = enforceRateLimit(extractClientIp(req.headers))
+    if (!ipRateCheck.ok) return ipRateCheck.response
+
+    // Message length guard — before any LLM call.
+    const lengthCheck = validateMessageLength(message, requestId)
+    if (!lengthCheck.ok) return lengthCheck.response
 
     // V6 §P0-3 — Prompt injection detection. Runs BEFORE any LLM call.
     const injectionCheck = checkPromptInjection(message)
@@ -134,14 +154,7 @@ export async function POST(req: NextRequest) {
           blocked: true,
         }),
       )
-      return NextResponse.json(
-        {
-          ok: false,
-          error: 'Your input could not be processed. Please rephrase your question.',
-          debug: { requestId },
-        },
-        { status: 400 },
-      )
+      return fail('Your input could not be processed. Please rephrase your question.')
     }
 
     // Spec §8.3 — durable QUERY_RECEIVED event at the very top of the path.
@@ -158,36 +171,84 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    // ── Server-side quota enforcement ─────────────────────────────
+    // Must run before ANY call to the LLM.
+    const identity = await resolveIdentity()
+    const detectedLanguageEarly = detectLanguageFallback(message)
+    const sessionToken = body?.sessionToken as string | undefined
+
+    const quotaGate = await enforceQuota(
+      sessionToken,
+      identity,
+      detectedLanguageEarly,
+      requestId,
+    )
+    if (!quotaGate.ok) return quotaGate.response
+    // ── End quota enforcement ───────────────────────────────────
+
     // Spec §12 — minimal path trace. We mutate this as we walk the layers so
     // the audit log and response can show exactly which layer answered.
     const pathTrace: {
       layers: string[]
       llmCalled: boolean
+      understandingCached: boolean
       sourceClass: 'STATIC' | 'REALTIME' | 'AI_INFERRED' | 'ESCALATION' | 'UNKNOWN'
     } = {
       layers: ['query_received'],
       llmCalled: false,
+      understandingCached: false,
       sourceClass: 'UNKNOWN',
     }
 
     // ----------------------------------------------------------------
     // 1) AI understanding (OpenAI Responses API). Falls back on failure.
+    //    Check in-memory LRU cache first to skip the OpenAI round-trip.
+    //    Run a baseline retrieveFromLocal in parallel with the AI call so
+    //    we overlap retrieval latency with the OpenAI network call.
     // ----------------------------------------------------------------
-    const understanding = await runUnderstanding(message)
+    const cachedUnderstanding = getCachedUnderstanding(message)
+    let understandingCached = false
+
+    // Run baseline retrieval eagerly (sync) so the result is ready
+    // regardless of whether the AI call succeeds or provides searchQueries.
+    const baselineRetrieval = retrieveFromLocal(message)
+
+    let understanding: import('@/lib/ai/types').UnderstandingResult
+    if (cachedUnderstanding) {
+      understanding = cachedUnderstanding
+      understandingCached = true
+    } else {
+      understanding = await runUnderstanding(message)
+      // Cache successful OpenAI results
+      setCachedUnderstanding(message, understanding)
+    }
+
     const ai = understanding.understanding
     const detectedLanguage: Language = ai.language || detectLanguageFallback(message)
     const openaiUsed = understanding.source === 'openai'
     const fallbackUsed = understanding.source === 'fallback'
-    pathTrace.layers.push(`understand:${understanding.source}`)
-    if (openaiUsed) pathTrace.llmCalled = true
+    pathTrace.layers.push(`understand:${understanding.source}${understandingCached ? ':cached' : ''}`)
+    pathTrace.understandingCached = understandingCached
+    if (openaiUsed && !understandingCached) pathTrace.llmCalled = true
+
+    const tUnderstand = Date.now()
+
+    // ----------------------------------------------------------------
+    // 1b) v9 — Question quality scoring (pure, no I/O).
+    // ----------------------------------------------------------------
+    const qualityScore = scoreQuestionQuality(message)
 
     // ----------------------------------------------------------------
     // 2) Retrieval — multi-query when AI gave us rewrites, else original.
+    //    If AI provided searchQueries, run multi-query retrieval (sync).
+    //    Otherwise reuse the baseline retrieval that already ran above.
     // ----------------------------------------------------------------
     const retrieval =
       ai.searchQueries.length > 0
         ? retrieveFromLocalMulti(message, ai.searchQueries)
-        : retrieveFromLocal(message)
+        : baselineRetrieval
+
+    const tRetrieve = Date.now()
 
     // ----------------------------------------------------------------
     // 3) Rule engine — deterministic safety gates on the raw query.
@@ -219,6 +280,50 @@ export async function POST(req: NextRequest) {
         .filter(Boolean)
         .join(' | '),
     }
+
+    // ----------------------------------------------------------------
+    // 4.1) v7 — JudgmentRegistry evaluation. Runs the structured
+    //       expert judgment rules against query context. Best-effort.
+    // ----------------------------------------------------------------
+    let judgmentAction: string | null = null
+    let judgmentRuleId: string | null = null
+    try {
+      const judgmentCtx = {
+        query_text: message,
+        risk_level: decision.riskLevel,
+        confidence_band: decision.confidenceBand,
+        language: detectedLanguage,
+      }
+      const judgmentResult = evaluateAll(JUDGMENT_RULES, judgmentCtx)
+      if (judgmentResult.topRule) {
+        judgmentAction = judgmentResult.topRule.action
+        judgmentRuleId = judgmentResult.topRule.ruleId
+        pathTrace.layers.push(`judgment:${judgmentRuleId}`)
+      }
+    } catch (e) {
+      logError('judgment_registry_error', e)
+    }
+
+    // ----------------------------------------------------------------
+    // 4.2) v7 — Routing Optimizer. Mathematical route scoring:
+    //       R* = argmin[α·cost + β·latency - γ·quality]
+    //       Logged for patent 方案A data collection. Best-effort.
+    // ----------------------------------------------------------------
+    let optimizerResult: ReturnType<typeof optimizeRoute> | null = null
+    try {
+      const features = featuresFromRouterContext(
+        retrieval.summary,
+        decision.riskLevel,
+        decision.confidenceBand,
+        0, // fLang populated when user session f_lang is wired
+      )
+      optimizerResult = optimizeRoute(features)
+      pathTrace.layers.push(`optimizer:${optimizerResult.optimal}`)
+    } catch (e) {
+      logError('routing_optimizer_error', e)
+    }
+
+    const tDecide = Date.now()
 
     const apiMode: ApiAnswerMode = ruleModeToApiMode(decision.answerMode)
     const topMatch = retrieval.matches[0] ?? null
@@ -281,6 +386,8 @@ export async function POST(req: NextRequest) {
           ),
         })
 
+    const tRender = Date.now()
+
     if (canShortcut) {
       pathTrace.layers.push('tier_shortcut')
       pathTrace.sourceClass = 'STATIC'
@@ -340,6 +447,22 @@ export async function POST(req: NextRequest) {
     const validatedPayload = validateAnswerPayload(payload)
 
     // ----------------------------------------------------------------
+    // 6.pre) v7 — Output safety validation. Validates LLM output before
+    //         it reaches the client or the audit log.
+    // ----------------------------------------------------------------
+    let outputValidated = false
+    try {
+      const validation = validateOutput(rendered.answer, 'render')
+      if (!validation.ok) {
+        ;(rendered as { answer: string }).answer = validation.sanitized
+        pathTrace.layers.push(`output_sanitized:${validation.issues.length}issues`)
+      }
+      outputValidated = true
+    } catch (e) {
+      logError('output_validation_error', e)
+    }
+
+    // ----------------------------------------------------------------
     // 6) Persist + audit. Every request lands in user_queries.
     // ----------------------------------------------------------------
     const stored = insertUserQuery({
@@ -370,68 +493,71 @@ export async function POST(req: NextRequest) {
     })
 
     // Single audit-style line per request, structured (§11.1).
-    console.log(
-      JSON.stringify({
-        event: 'router_audit',
-        requestId,
-        userQueryId: stored.id,
-        timestamp: new Date().toISOString(),
-        sessionId,
-        // PII guard: only log full query when LOG_PII=true (§11.2).
-        originalQuery: openaiEnv.LOG_PII ? message : message.slice(0, 200),
-        understanding: {
-          source: understanding.source,
-          latencyMs: understanding.latencyMs,
-          language: ai.language,
-          intent: ai.intent,
-          category: ai.category,
-          subtopic: ai.subtopic,
-          riskLevel: ai.riskLevel,
-          shouldOfficialOnly: ai.shouldOfficialOnly,
-          shouldHandoff: ai.shouldHandoff,
-          searchQueries: ai.searchQueries,
-          confidence: ai.confidence,
-        },
-        retrieval: {
-          topFaqId: topMatch?.id ?? null,
-          topScore: retrieval.summary.topScore,
-          matchCount: retrieval.matches.length,
-          matchedSourceIds: retrieval.matches.map((m) => m.id),
-          // v4 改进 #1 / #6: surface tier + provenance + shortcut decision so
-          // staff can audit how often the LLM is being bypassed and with
-          // which cards.
-          topTier: retrieval.summary.topTier ?? null,
-          topSourceType: retrieval.summary.topSourceType ?? null,
-          shortcut,
-          shortcutTaken: canShortcut,
-        },
-        rule: {
-          answerMode: ruleDecision.answerMode,
-          riskLevel: ruleDecision.riskLevel,
-          selectedRuleKeys: ruleDecision.selectedRuleKeys,
-        },
-        reconciled: {
-          answerMode: decision.answerMode,
-          apiMode,
-          riskLevel: decision.riskLevel,
-          note: reconciled.note,
-        },
-        rendering: {
-          source: rendered.source,
-          latencyMs: rendered.latencyMs,
-        },
-        payload: {
-          blocked: validatedPayload.blocked ?? false,
-          block_reason: validatedPayload.block_reason ?? null,
-          blockCount: validatedPayload.blocks.length,
-          labels: validatedPayload.blocks.map((b) => b.label),
-        },
-        pathTrace,
-        openaiUsed,
-        fallbackUsed,
-        latencyMs: Date.now() - startedAt,
-      }),
-    )
+    devLogJson({
+      event: 'router_audit',
+      requestId,
+      userQueryId: stored.id,
+      timestamp: new Date().toISOString(),
+      sessionId,
+      // PII guard: only log full query when LOG_PII=true (§11.2).
+      originalQuery: openaiEnv.LOG_PII ? message : message.slice(0, 200),
+      understanding: {
+        source: understanding.source,
+        latencyMs: understanding.latencyMs,
+        language: ai.language,
+        intent: ai.intent,
+        category: ai.category,
+        subtopic: ai.subtopic,
+        riskLevel: ai.riskLevel,
+        shouldOfficialOnly: ai.shouldOfficialOnly,
+        shouldHandoff: ai.shouldHandoff,
+        searchQueries: ai.searchQueries,
+        confidence: ai.confidence,
+      },
+      retrieval: {
+        topFaqId: topMatch?.id ?? null,
+        topScore: retrieval.summary.topScore,
+        matchCount: retrieval.matches.length,
+        matchedSourceIds: retrieval.matches.map((m) => m.id),
+        topTier: retrieval.summary.topTier ?? null,
+        topSourceType: retrieval.summary.topSourceType ?? null,
+        shortcut,
+        shortcutTaken: canShortcut,
+      },
+      rule: {
+        answerMode: ruleDecision.answerMode,
+        riskLevel: ruleDecision.riskLevel,
+        selectedRuleKeys: ruleDecision.selectedRuleKeys,
+      },
+      reconciled: {
+        answerMode: decision.answerMode,
+        apiMode,
+        riskLevel: decision.riskLevel,
+        note: reconciled.note,
+      },
+      rendering: {
+        source: rendered.source,
+        latencyMs: rendered.latencyMs,
+      },
+      payload: {
+        blocked: validatedPayload.blocked ?? false,
+        block_reason: validatedPayload.block_reason ?? null,
+        blockCount: validatedPayload.blocks.length,
+        labels: validatedPayload.blocks.map((b) => b.label),
+      },
+      pathTrace,
+      v7: {
+        judgmentRuleId,
+        judgmentAction,
+        optimizerRoute: optimizerResult?.optimal ?? null,
+        optimizerAvoidedHuman: optimizerResult?.avoidedHumanEscalation ?? null,
+        optimizerCostSaving: optimizerResult?.costSavingVsBaseline ?? null,
+        outputValidated,
+      },
+      openaiUsed,
+      fallbackUsed,
+      latencyMs: Date.now() - startedAt,
+    })
 
     if (decision.answerMode === 'handoff' || decision.shouldEscalate) {
       const handoffRow = insertHandoff({
@@ -505,6 +631,42 @@ export async function POST(req: NextRequest) {
     }
 
     // ----------------------------------------------------------------
+    // 6.8) v8 — Evidence Chain Logger. Immutable audit record per query.
+    //       Best-effort; never blocks the response path.
+    // ----------------------------------------------------------------
+    try {
+      const ecRecord = createEvidenceRecord({
+        module: 'routing',
+        queryId: stored.id,
+        sessionId: sessionId ?? requestId,
+        input: {
+          queryText: message,
+          userLanguage: detectedLanguage,
+          scenarioTag: ai.category || null,
+        },
+        routeTaken: pathTrace.sourceClass,
+        decisionReasonCode: decision.decisionReason || 'UNKNOWN',
+        decisionReasonDetails: {
+          answerMode: decision.answerMode,
+          riskLevel: decision.riskLevel,
+          selectedRuleKeys: decision.selectedRuleKeys,
+          reconcileNote: reconciled.note,
+          queryQualityScore: qualityScore.score,
+          queryQualityElements: qualityScore.elementsPresent,
+        },
+        evidenceUsed: retrieval.matches.map((m) => m.id),
+        triggerScore: retrieval.summary.topScore ?? null,
+        optimizerRoute: optimizerResult?.optimal ?? null,
+        judgmentRuleId,
+        answerType: pathTrace.sourceClass === 'STATIC' ? 'L1' : pathTrace.sourceClass === 'ESCALATION' ? 'L6' : 'L3',
+        timeToFirstActionMs: Date.now() - startedAt,
+      })
+      logEvidenceRecord(ecRecord)
+    } catch (e) {
+      logError('evidence_chain_logger_error', e)
+    }
+
+    // ----------------------------------------------------------------
     // 7) Response. New top-level fields match design doc §5.2; legacy
     //    fields (`decision`, `knowledge`, `aiAnswer`) are kept so the
     //    existing frontend keeps rendering without a redeploy.
@@ -521,9 +683,8 @@ export async function POST(req: NextRequest) {
       risk_level: m.risk_level,
     }))
 
-    return NextResponse.json({
+    return ok({
       // ── §5.2 spec shape ──────────────────────────────────────────
-      ok: true,
       language: detectedLanguage,
       answer: rendered.answer,
       mode: apiMode,
@@ -556,6 +717,13 @@ export async function POST(req: NextRequest) {
         topSourceType: retrieval.summary.topSourceType ?? null,
         payloadBlocked: validatedPayload.blocked ?? false,
         payloadBlockReason: validatedPayload.block_reason ?? null,
+        latency: {
+          understandMs: tUnderstand - startedAt,
+          retrieveMs: tRetrieve - tUnderstand,
+          decideMs: tDecide - tRetrieve,
+          renderMs: tRender - tDecide,
+          totalMs: tRender - startedAt,
+        },
       },
       // ── Backwards-compat fields used by current page.tsx ─────────
       decision,
@@ -575,15 +743,16 @@ export async function POST(req: NextRequest) {
         subtopic: ai.subtopic ?? '',
         missingInfo: ai.missingInfo,
       },
+      // ── v9 — Question quality feedback ─────────────────────
+      questionQuality: {
+        score: qualityScore.score,
+        elementsPresent: qualityScore.elementsPresent,
+        suggestion: qualityScore.suggestion,
+        badType: qualityScore.badType,
+      },
     })
   } catch (error) {
     logError('router_error', error)
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Internal error',
-        debug: { requestId },
-      },
-      { status: 500 },
-    )
+    return fail(error instanceof Error ? error.message : 'Internal error', 500)
   }
 }

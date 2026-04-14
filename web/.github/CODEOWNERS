@@ -1,0 +1,37 @@
+# JTG CODEOWNERS — Security V2
+# All changes to protected paths require owner review.
+#
+# ⚠ IMPORTANT: Replace @staropenai below with the actual GitHub username
+#   before activating branch protection rules.
+
+# Default: owner reviews everything
+* @staropenai
+
+# Patent-critical: core algorithm files (L1 sensitivity)
+src/lib/routing/kb-matcher.ts           @staropenai
+src/lib/knowledge/retrieve.ts           @staropenai
+src/lib/knowledge/seed.ts               @staropenai
+src/lib/router/decide.ts                @staropenai
+src/lib/domain/language-bridge.ts       @staropenai
+src/lib/ai/understand.ts                @staropenai
+src/lib/ai/generate.ts                  @staropenai
+src/lib/ai/generate-stream.ts           @staropenai
+
+# Evidence chain (patent evidence — integrity critical)
+src/lib/patent/                         @staropenai
+src/lib/db/tables.ts                    @staropenai
+
+# Security modules
+src/lib/security/                       @staropenai
+src/lib/monitoring/sentry.ts            @staropenai
+src/lib/auth/                           @staropenai
+src/lib/quota/                          @staropenai
+src/proxy.ts                            @staropenai
+
+# Infrastructure & config
+.env*                                   @staropenai
+next.config.ts                          @staropenai
+.gitleaks.toml                          @staropenai
+.github/                                @staropenai
+scripts/                                @staropenai
+audit/                                  @staropenai

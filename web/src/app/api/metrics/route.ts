@@ -16,18 +16,17 @@
  *   limit   — max gaps to return (default: 10)
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { captureSnapshot, type MetricSnapshot } from '@/lib/routing/metrics'
 import { detectKnowledgeGaps, type GapDetectorResult } from '@/lib/pipeline/gap-detector'
 import { logError } from '@/lib/audit/logger'
-
-export interface MetricsResponse {
-  ok: true
-  snapshot: MetricSnapshot
-  gaps?: GapDetectorResult
-}
+import { ok, fail, rateLimited } from '@/lib/utils/api-response'
+import { checkRateLimit, extractClientIp, RATE_LIMIT_PRESETS } from '@/lib/security/rate-limit'
 
 export async function GET(req: NextRequest) {
+  const rl = checkRateLimit(`metrics:${extractClientIp(req.headers)}`, RATE_LIMIT_PRESETS.api);
+  if (!rl.allowed) return rateLimited(Math.ceil((rl.retryAfterMs ?? 60000) / 1000));
+
   try {
     const url = new URL(req.url)
     const since = url.searchParams.get('since') ?? undefined
@@ -51,22 +50,16 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const response: MetricsResponse = { ok: true, snapshot }
-    if (gaps) response.gaps = gaps
+    const payload: { snapshot: MetricSnapshot; gaps?: GapDetectorResult } = { snapshot }
+    if (gaps) payload.gaps = gaps
 
-    return NextResponse.json(response)
+    return ok(payload)
   } catch (error) {
     logError('metrics_route_error', error)
-    return NextResponse.json(
-      {
-        ok: false,
-        error: {
-          code: 'INTERNAL',
-          message: error instanceof Error ? error.message : 'Internal error',
-          relatedIds: {},
-        },
-      },
-      { status: 500 },
+    return fail(
+      error instanceof Error ? error.message : 'Internal error',
+      500,
+      'INTERNAL',
     )
   }
 }

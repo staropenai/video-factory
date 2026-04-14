@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { COMPANY } from "@/lib/company";
 
 export function Footer() {
   return (
@@ -7,10 +8,10 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="md:col-span-2">
             <Link href="/" className="text-lg font-semibold tracking-tight">
-              StartOpenAI
+              {COMPANY.brand}
             </Link>
             <p className="mt-3 text-sm text-muted leading-relaxed max-w-md">
-              TBD_NEW_POSITIONING
+              {COMPANY.tagline.en}
             </p>
           </div>
 
@@ -20,8 +21,8 @@ export function Footer() {
             </p>
             <ul className="space-y-2.5">
               {[
-                { href: "/about", label: "About" },
-                { href: "/work", label: "Work" },
+                { href: "/zh-Hans", label: "Guide" },
+                { href: "/try", label: "Ask AI" },
                 { href: "/contact", label: "Contact" },
               ].map((link) => (
                 <li key={link.href}>
@@ -42,8 +43,8 @@ export function Footer() {
             </p>
             <ul className="space-y-2.5">
               {[
-                { href: "#", label: "Privacy" },
-                { href: "#", label: "Terms" },
+                { href: COMPANY.links.privacy, label: "Privacy" },
+                { href: COMPANY.links.terms, label: "Terms" },
               ].map((link) => (
                 <li key={link.label}>
                   <Link
@@ -58,9 +59,37 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-12 pt-6 border-t border-border">
+        {/* Company info */}
+        <div className="mt-8 pt-6 border-t border-border">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <p className="text-sm font-medium">{COMPANY.legalNameJa}</p>
+              <p className="text-sm text-muted">{COMPANY.legalNameEn}</p>
+              <p className="mt-2 text-xs text-muted">
+                {COMPANY.address.postal} {COMPANY.address.full}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted">
+                TEL: {COMPANY.tel}
+              </p>
+              <p className="text-xs text-muted">
+                Email: {COMPANY.email}
+              </p>
+              <ul className="mt-2 space-y-1">
+                {COMPANY.credentials.map((cred) => (
+                  <li key={cred.ja} className="text-xs text-muted">
+                    {cred.ja}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-8 pt-6 border-t border-border">
           <p className="text-xs text-muted">
-            &copy; {new Date().getFullYear()} StartOpenAI.
+            &copy; {new Date().getFullYear()} {COMPANY.brand}.
           </p>
         </div>
       </div>

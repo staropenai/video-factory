@@ -8,7 +8,8 @@
  * handoff writeback lives at /api/templates/promote.
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { ok, fail, rateLimited } from '@/lib/utils/api-response'
 import {
   insertTemplate,
   listTemplates,
@@ -16,6 +17,8 @@ import {
   type TemplateRow,
 } from '@/lib/db/tables'
 import { logError } from '@/lib/audit/logger'
+import { requireAdmin } from '@/lib/auth/admin-guard'
+import { checkRateLimit, extractClientIp, RATE_LIMIT_PRESETS } from '@/lib/security/rate-limit'
 
 type Lang = 'en' | 'zh' | 'ja'
 const STATUSES: TemplateStatus[] = ['draft', 'active', 'archived']
@@ -40,6 +43,12 @@ function normalizeTags(v: unknown): string[] {
 }
 
 export async function GET(req: NextRequest) {
+  const rl = checkRateLimit(`templates:${extractClientIp(req.headers)}`, RATE_LIMIT_PRESETS.api);
+  if (!rl.allowed) return rateLimited(Math.ceil((rl.retryAfterMs ?? 60000) / 1000));
+
+  const authCheck = requireAdmin(req);
+  if (!authCheck.ok) return authCheck.response;
+
   try {
     const url = new URL(req.url)
     const statusParam = url.searchParams.get('status') || undefined
@@ -57,35 +66,29 @@ export async function GET(req: NextRequest) {
         : undefined
 
     const rows = listTemplates({ status, language, category, q })
-    return NextResponse.json({ ok: true, templates: rows, total: rows.length })
+    return ok({ templates: rows, total: rows.length })
   } catch (error) {
     logError('templates_list_error', error)
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : 'Internal error',
-      },
-      { status: 500 },
-    )
+    return fail(error instanceof Error ? error.message : 'Internal error', 500)
   }
 }
 
 export async function POST(req: NextRequest) {
+  const rl = checkRateLimit(`templates:${extractClientIp(req.headers)}`, RATE_LIMIT_PRESETS.api);
+  if (!rl.allowed) return rateLimited(Math.ceil((rl.retryAfterMs ?? 60000) / 1000));
+
+  const authCheck = requireAdmin(req);
+  if (!authCheck.ok) return authCheck.response;
+
   try {
     const body = await req.json()
     const title = String(body.title || '').trim()
     const templateBody = String(body.body || '').trim()
     if (!title) {
-      return NextResponse.json(
-        { ok: false, error: 'title is required' },
-        { status: 400 },
-      )
+      return fail('title is required')
     }
     if (!templateBody) {
-      return NextResponse.json(
-        { ok: false, error: 'body is required' },
-        { status: 400 },
-      )
+      return fail('body is required')
     }
 
     const row: Omit<
@@ -111,15 +114,9 @@ export async function POST(req: NextRequest) {
     }
 
     const created = insertTemplate(row)
-    return NextResponse.json({ ok: true, template: created })
+    return ok({ template: created }, 201)
   } catch (error) {
     logError('templates_create_error', error)
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : 'Internal error',
-      },
-      { status: 500 },
-    )
+    return fail(error instanceof Error ? error.message : 'Internal error', 500)
   }
 }

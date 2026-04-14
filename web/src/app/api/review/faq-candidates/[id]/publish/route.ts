@@ -25,7 +25,7 @@
  * falls back off the candidate.
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import {
   getFaqCandidate,
   insertLiveFaq,
@@ -36,8 +36,12 @@ import {
   type LiveFaqRow,
   type LocalizedText3,
 } from '@/lib/db/tables'
+import { requireAdmin } from '@/lib/auth/admin-guard'
 import { canTransition } from '@/lib/candidate/state'
 import { logError } from '@/lib/audit/logger'
+import { devLog } from '@/lib/utils/dev-log'
+import { ok, fail, notFound, rateLimited } from '@/lib/utils/api-response'
+import { checkRateLimit, extractClientIp, RATE_LIMIT_PRESETS } from '@/lib/security/rate-limit'
 
 type Ctx = { params: Promise<{ id: string }> }
 
@@ -56,12 +60,8 @@ function err(
   code: string,
   message: string,
   status: number,
-  relatedIds: Record<string, unknown> = {},
 ) {
-  return NextResponse.json(
-    { ok: false, error: { code, message, relatedIds } },
-    { status },
-  )
+  return fail(message, status, code)
 }
 
 function normalizeLocalized(
@@ -114,14 +114,18 @@ function normalizeKeywordBag(input: unknown): {
 }
 
 export async function POST(req: NextRequest, ctx: Ctx) {
+  const rl = checkRateLimit(`faq-publish:${extractClientIp(req.headers)}`, RATE_LIMIT_PRESETS.api);
+  if (!rl.allowed) return rateLimited(Math.ceil((rl.retryAfterMs ?? 60000) / 1000));
+
+  const authCheck = requireAdmin(req);
+  if (!authCheck.ok) return authCheck.response;
+
   let createdLiveFaqId: string | null = null
   try {
     const { id } = await ctx.params
     const candidate = getFaqCandidate(id)
     if (!candidate) {
-      return err('CANDIDATE_NOT_FOUND', `candidate ${id} not found`, 404, {
-        candidateId: id,
-      })
+      return err('CANDIDATE_NOT_FOUND', `candidate ${id} not found`, 404)
     }
 
     // ---- Idempotency (§7.1) ------------------------------------------------
@@ -133,8 +137,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     ) {
       const existing = getLiveFaq(candidate.publishedLiveFaqId)
       if (existing) {
-        return NextResponse.json({
-          ok: true,
+        return ok({
           idempotent: true,
           liveFaq: existing,
           candidate,
@@ -146,7 +149,6 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         'PUBLISHED_WITHOUT_LIVE_FAQ',
         'candidate is PUBLISHED but its live_faq row is missing',
         409,
-        { candidateId: id, liveFaqId: candidate.publishedLiveFaqId },
       )
     }
 
@@ -181,7 +183,6 @@ export async function POST(req: NextRequest, ctx: Ctx) {
             ? `publish requires state REVIEWED; current state is ${from}`
             : check.message,
           409,
-          { candidateId: id, from, to: 'PUBLISHED' },
         )
       }
     }
@@ -189,21 +190,15 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     // ---- Body validation ---------------------------------------------------
     const category = String(body.category || '')
     if (!(CATEGORIES as string[]).includes(category)) {
-      return err('INVALID_CATEGORY', `invalid category: ${category}`, 400, {
-        candidateId: id,
-      })
+      return err('INVALID_CATEGORY', `invalid category: ${category}`, 400)
     }
     const riskLevel = String(body.riskLevel || 'low')
     if (!(RISKS as string[]).includes(riskLevel)) {
-      return err('INVALID_RISK', `invalid riskLevel: ${riskLevel}`, 400, {
-        candidateId: id,
-      })
+      return err('INVALID_RISK', `invalid riskLevel: ${riskLevel}`, 400)
     }
     const tier = String(body.tier || 'C').toUpperCase()
     if (!(TIERS as string[]).includes(tier)) {
-      return err('INVALID_TIER', `invalid tier: ${tier}`, 400, {
-        candidateId: id,
-      })
+      return err('INVALID_TIER', `invalid tier: ${tier}`, 400)
     }
     const confidenceHalfLifeDays =
       body.confidenceHalfLifeDays == null
@@ -217,7 +212,6 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         'INVALID_HALF_LIFE',
         `invalid confidenceHalfLifeDays`,
         400,
-        { candidateId: id },
       )
     }
 
@@ -227,7 +221,6 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         'ANSWER_REQUIRED',
         'answer is required (at least one language)',
         400,
-        { candidateId: id },
       )
     }
 
@@ -302,7 +295,6 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         'PUBLISH_STATE_WRITE_FAILED',
         'failed to update candidate state — live_faq rolled back',
         500,
-        { candidateId: id },
       )
     }
 
@@ -322,15 +314,14 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       },
     })
 
-    console.log('LIVE_FAQ_PUBLISHED', {
+    devLog('LIVE_FAQ_PUBLISHED', {
       liveFaqId: liveFaq.id,
       fromCandidate: candidate.id,
       category: liveFaq.category,
       riskLevel: liveFaq.riskLevel,
     })
 
-    return NextResponse.json({
-      ok: true,
+    return ok({
       liveFaq,
       candidate: updated,
     })
@@ -358,16 +349,6 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         /* swallow */
       }
     }
-    return NextResponse.json(
-      {
-        ok: false,
-        error: {
-          code: 'INTERNAL',
-          message: error instanceof Error ? error.message : 'Internal error',
-          relatedIds: {},
-        },
-      },
-      { status: 500 },
-    )
+    return fail(error instanceof Error ? error.message : 'Internal error', 500, 'INTERNAL')
   }
 }

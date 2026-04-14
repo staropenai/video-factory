@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Navigation } from "@/components/layout/navigation";
-import { Footer } from "@/components/layout/footer";
-import { SessionProvider } from "@/lib/session-context";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,18 +13,21 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "StartOpenAI",
+  title: "Japan Trust Gateway",
   description:
-    "TBD_NEW_POSITIONING",
-  robots: { index: false, follow: false },
+    "Trusted guidance for foreigners renting and living in Japan. Housing help in English, Chinese, and Japanese.",
+  robots: { index: true, follow: true },
   openGraph: {
-    title: "StartOpenAI",
+    title: "Japan Trust Gateway",
     description:
-      "TBD_NEW_POSITIONING",
+      "Trusted guidance for foreigners renting and living in Japan.",
     type: "website",
   },
 };
 
+// Root layout — minimal shell. Route groups add their own chrome:
+// (main) = old app with Navigation/Footer
+// (jtg)  = JTG homepage with its own NavBar/FooterZone
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -39,11 +39,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <SessionProvider>
-          <Navigation />
-          <main className="flex-1">{children}</main>
-          <Footer />
-        </SessionProvider>
+        {children}
       </body>
     </html>
   );

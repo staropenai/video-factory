@@ -30,9 +30,18 @@
  * The router path must never crash because of vision.
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { ok, fail, rateLimited } from '@/lib/utils/api-response'
+import { sanitizeInput } from '@/lib/utils/sanitize'
 import { openai, openaiAvailable, env as openaiEnv } from '@/lib/ai/openai'
 import { logError } from '@/lib/audit/logger'
+import {
+  checkRateLimit,
+  extractClientIp,
+  RATE_LIMIT_PRESETS,
+} from '@/lib/security/rate-limit'
+import { resolveIdentity } from '@/lib/auth/identity'
+import { consumeQuota } from '@/lib/quota/tracker'
 
 type Lang = 'en' | 'zh' | 'ja'
 
@@ -116,6 +125,24 @@ async function callVision(
 }
 
 export async function POST(req: NextRequest) {
+  // Per-IP rate limit — AI-consuming endpoint, use "auth" preset (10 req/min).
+  const rl = checkRateLimit(
+    `vision-extract:${extractClientIp(req.headers)}`,
+    RATE_LIMIT_PRESETS.auth,
+  );
+  if (!rl.allowed) {
+    return rateLimited(Math.ceil((rl.retryAfterMs ?? 60000) / 1000));
+  }
+
+  // Quota enforcement — only when OpenAI vision is actually enabled.
+  if (openaiEnv.ENABLE_IMAGE_INPUT && openaiAvailable) {
+    const identity = await resolveIdentity();
+    const status = await consumeQuota(identity.uid, identity.isAuthenticated, 'en');
+    if (status.blocked) {
+      return fail("quota_exceeded", 429, "QUOTA_EXCEEDED");
+    }
+  }
+
   const startedAt = Date.now()
   let hint = ''
   let language: Lang = 'en'
@@ -127,29 +154,23 @@ export async function POST(req: NextRequest) {
     if (contentType.includes('multipart/form-data')) {
       const form = await req.formData()
       const file = form.get('file')
-      hint = String(form.get('hint') || '').trim()
+      hint = sanitizeInput(String(form.get('hint') || ''), 500)
       language = normalizeLang(form.get('language'))
 
       if (!(file instanceof File)) {
-        return NextResponse.json(
-          { ok: false, error: 'file is required' },
-          { status: 400 },
-        )
+        return fail('file is required')
       }
       const buf = Buffer.from(await file.arrayBuffer())
       const mime = file.type || 'image/png'
       imageUrl = `data:${mime};base64,${buf.toString('base64')}`
     } else {
       const body = await req.json().catch(() => ({}))
-      hint = String(body.hint || '').trim()
+      hint = sanitizeInput(String(body.hint || ''), 500)
       language = normalizeLang(body.language)
       const base64 = String(body.imageBase64 || '')
       const mime = String(body.mimeType || 'image/png')
       if (!base64) {
-        return NextResponse.json(
-          { ok: false, error: 'imageBase64 or multipart file is required' },
-          { status: 400 },
-        )
+        return fail('imageBase64 or multipart file is required')
       }
       imageUrl = base64.startsWith('data:')
         ? base64
@@ -158,8 +179,7 @@ export async function POST(req: NextRequest) {
 
     if (!openaiEnv.ENABLE_IMAGE_INPUT || !openaiAvailable) {
       const result = fallbackResult(hint, language)
-      return NextResponse.json({
-        ok: true,
+      return ok({
         ...result,
         source: 'fallback',
         debug: { latencyMs: Date.now() - startedAt, reason: 'vision_disabled' },
@@ -168,8 +188,7 @@ export async function POST(req: NextRequest) {
 
     try {
       const result = await callVision(imageUrl, hint, language)
-      return NextResponse.json({
-        ok: true,
+      return ok({
         ...result,
         source: 'openai',
         debug: { latencyMs: Date.now() - startedAt },
@@ -177,8 +196,7 @@ export async function POST(req: NextRequest) {
     } catch (err) {
       logError('vision_extract_openai_error', err)
       const result = fallbackResult(hint, language)
-      return NextResponse.json({
-        ok: true,
+      return ok({
         ...result,
         source: 'fallback',
         debug: {
@@ -189,12 +207,6 @@ export async function POST(req: NextRequest) {
     }
   } catch (error) {
     logError('vision_extract_error', error)
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : 'Internal error',
-      },
-      { status: 500 },
-    )
+    return fail(error instanceof Error ? error.message : 'Internal error', 500)
   }
 }

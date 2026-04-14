@@ -8,30 +8,24 @@
  * Staff use this to know which evidence needs re-verification.
  */
 
-import { NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { findExpiredEvidence } from '@/lib/evidence/registry'
 import { logError } from '@/lib/audit/logger'
+import { ok, fail, rateLimited } from '@/lib/utils/api-response'
+import { checkRateLimit, extractClientIp, RATE_LIMIT_PRESETS } from '@/lib/security/rate-limit'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const rl = checkRateLimit(`evidence-expired:${extractClientIp(req.headers)}`, RATE_LIMIT_PRESETS.ai);
+  if (!rl.allowed) return rateLimited(Math.ceil((rl.retryAfterMs ?? 60000) / 1000));
+
   try {
     const expired = findExpiredEvidence()
-    return NextResponse.json({
-      ok: true,
+    return ok({
       count: expired.length,
       records: expired,
     })
   } catch (error) {
     logError('evidence_expired_error', error)
-    return NextResponse.json(
-      {
-        ok: false,
-        error: {
-          code: 'INTERNAL',
-          message: error instanceof Error ? error.message : 'Internal error',
-          relatedIds: {},
-        },
-      },
-      { status: 500 },
-    )
+    return fail(error instanceof Error ? error.message : 'Internal error', 500, 'INTERNAL')
   }
 }

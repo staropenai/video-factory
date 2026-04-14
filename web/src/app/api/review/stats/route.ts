@@ -8,19 +8,28 @@
  * the store for a real persistence layer.
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import {
   getReviewStats,
   listUserQueries,
   listHandoffs,
   listFaqCandidates,
 } from '@/lib/db/tables'
+import { requireAdmin } from '@/lib/auth/admin-guard'
 import { CATEGORY_COUNTS } from '@/lib/knowledge/seed'
 import { CANDIDATE_STATES } from '@/lib/domain/enums'
 import type { CandidateState } from '@/lib/domain/enums'
 import { logError } from '@/lib/audit/logger'
+import { ok, fail, rateLimited } from '@/lib/utils/api-response'
+import { checkRateLimit, extractClientIp, RATE_LIMIT_PRESETS } from '@/lib/security/rate-limit'
 
 export async function GET(req: NextRequest) {
+  const rl = checkRateLimit(`review-stats:${extractClientIp(req.headers)}`, RATE_LIMIT_PRESETS.api);
+  if (!rl.allowed) return rateLimited(Math.ceil((rl.retryAfterMs ?? 60000) / 1000));
+
+  const authCheck = requireAdmin(req);
+  if (!authCheck.ok) return authCheck.response;
+
   try {
     // Spec §9 — backend-driven state filter. The /review UI passes ?state=
     // and we hand back exactly what the state machine says, no frontend
@@ -32,8 +41,7 @@ export async function GET(req: NextRequest) {
         ? (stateParam as CandidateState)
         : undefined
 
-    return NextResponse.json({
-      ok: true,
+    return ok({
       stats: getReviewStats(),
       recentLog: listUserQueries(50),
       handoffs: listHandoffs(),
@@ -43,9 +51,6 @@ export async function GET(req: NextRequest) {
     })
   } catch (error) {
     logError('review_stats_error', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal error' },
-      { status: 500 },
-    )
+    return fail(error instanceof Error ? error.message : 'Internal error', 500)
   }
 }
