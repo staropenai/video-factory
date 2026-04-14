@@ -1,21 +1,21 @@
-# CODEOWNERS — 模板，@owner 需替换为真实 GitHub username
+# CODEOWNERS — 模板，@staropenai 需替换为真实 GitHub username
 # 未替换前不具备实际保护效果
 
 # 数据库相关（高风险，任何改动必须 owner review）
-/web/src/lib/db/                   @owner
+/web/src/lib/db/                   @staropenai
 
 # 路由核心
-/web/src/lib/router/               @owner
+/web/src/lib/router/               @staropenai
 
 # 安全与认证
-/web/src/lib/security/             @owner
-/web/src/lib/auth/                 @owner
-/web/src/app/api/auth/             @owner
+/web/src/lib/security/             @staropenai
+/web/src/lib/auth/                 @staropenai
+/web/src/app/api/auth/             @staropenai
 
 # 知识库核心
-/web/src/lib/knowledge/seed.ts     @owner
+/web/src/lib/knowledge/seed.ts     @staropenai
 
 # 部署与环境配置
-/.env*                             @owner
-/vercel.json                       @owner
-/next.config.*                     @owner
+/.env*                             @staropenai
+/vercel.json                       @staropenai
+/next.config.*                     @staropenai
