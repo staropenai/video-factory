@@ -72,10 +72,9 @@ export interface TrackPayload {
 /**
  * Fire-and-forget analytics call.
  * Never throws. Never blocks the UI thread.
- * Replace the body with your real analytics SDK call.
+ * Sends events to /api/behavior for server-side persistence.
  */
 export function track(event: EventName, payload?: TrackPayload): void {
-  // TODO: replace with real analytics (e.g. PostHog, Amplitude, custom endpoint)
   if (process.env.NODE_ENV !== "production") {
     try {
       const { devLog } = require("@/lib/utils/dev-log");
@@ -85,11 +84,10 @@ export function track(event: EventName, payload?: TrackPayload): void {
     }
   }
 
-  // Example real implementation:
-  // fetch("/api/analytics", {
-  //   method: "POST",
-  //   headers: { "Content-Type": "application/json" },
-  //   body: JSON.stringify({ event, ...payload, ts: Date.now() }),
-  //   keepalive: true,   // survives page unload
-  // }).catch(() => {});  // swallow all errors — analytics must never break the page
+  fetch("/api/behavior", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ event, ...payload, ts: Date.now() }),
+    keepalive: true,
+  }).catch(() => {});
 }
