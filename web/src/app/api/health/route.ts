@@ -15,7 +15,8 @@ export async function GET(req: NextRequest) {
   const rl = checkRateLimit(`health:${extractClientIp(req.headers)}`, RATE_LIMIT_PRESETS.api);
   if (!rl.allowed) return rateLimited(Math.ceil((rl.retryAfterMs ?? 60000) / 1000));
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'
+  // Use server-only env var; NEXT_PUBLIC_ prefix would expose this to client bundles
+  const API_BASE = process.env.JTG_API_URL || process.env.NEXT_PUBLIC_API_URL || ''
   let dbStatus = 'unknown'
 
   try {
