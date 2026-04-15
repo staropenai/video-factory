@@ -33,6 +33,7 @@ export interface HomepageCopy {
 
   // 3-step guide (shown on card1 expand)
   guideTitle:        string;
+  guidePlatformHint: string;   // "① 点击平台看房源 → ② 复制房源网址 → ③ 回来粘贴到分析框"
   step1:             string;
   step2:             string;
   step3:             string;
@@ -53,6 +54,7 @@ export interface HomepageCopy {
   aiSendLabel:       string;
   aiDisclaimer:      string;   // "results for reference only" — spec §3.5 fixed copy
   aiQuotaFmt:        string;   // e.g. "{remaining}/{limit} left today"
+  aiQuotaReset:      string;   // e.g. "Resets at midnight"
   aiQuotaExhausted:  string;
 
   // Trust bar
@@ -82,12 +84,15 @@ export interface HomepageCopy {
   channelEmail:      string;
   channelWhatsApp:   string;
   channelPhone:      string;
+  humanReplyTime:    string;
+  humanFallback:     string;
 
   // External platform area
   externalLabel:     string;   // "External link" marker (spec §3.10)
   externalNote:      string;   // "Opens external site — not affiliated" (spec §3.10)
 
   // Footer
+  footerOperator:    string;   // "运营方：" prefix for env-injected company name
   footerDisclaimer:  string;
   footerPrivacy:     string;
   footerTerms:       string;
@@ -196,6 +201,49 @@ export interface HomepageCopy {
   // Footer compliance
   footerComplianceNote:  string;
   footerReportViolation: string;
+  footerEvidenceVerify:  string;
+
+  // ── V6 Fix: additional keys ───────────────────────────────────────────
+
+  // ZONE 1: Loss aversion banner
+  lossAversionText:      string;
+  lossAversionSource:    string;
+  statBannerPercent:     string;
+  statBannerText:        string;
+  statBannerCta:         string;
+  statBannerSource:      string;
+
+  // ZONE 4: Analysis timestamp note
+  analysisTimestampNote: string;
+
+  // ZONE 4c: View trust dashboard button
+  viewTrustDashboard:    string;
+
+  // ZONE 6: Trust commitment card action labels
+  trustAction1Label:     string;
+  trustAction2aLabel:    string;
+  trustAction2bLabel:    string;
+  trustAction3Label:     string;
+  trustAction3LoginHint: string;
+  trustAction4Label:     string;
+  trustAction5aLabel:    string;
+  trustAction5bLabel:    string;
+
+  // ZONE 6b: Transparency layer extras
+  transparencyDisclaimer:   string;
+  transparencyExpandLabel:  string;
+  transparencyAnalysisTime: string;
+  transparencyEvidenceHash: string;
+  transparencyViewFull:     string;
+
+  // ZONE 8: Confirmation strip items
+  confirmSendItem1:     string;
+  confirmSendItem2:     string;
+  confirmSendItem3:     string;
+  confirmSendItem4:     string;
+  confirmNotSendItem1:  string;
+  confirmNotSendItem2:  string;
+  confirmNotSendItem3:  string;
 }
 
 const copy: Record<Locale, HomepageCopy> = {
@@ -217,6 +265,7 @@ const copy: Record<Locale, HomepageCopy> = {
     card3Hint:         "AI 回答 · 中文客服兜底",
 
     guideTitle:        "怎么用「先去看房源」？三步搞定：",
+    guidePlatformHint: "① 点击平台看房源 → ② 复制房源网址 → ③ 回来粘贴到分析框",
     step1:             "点下方平台链接，去 AtHome / SUUMO 看房",
     step2:             "看到喜欢的 → 截图回来上传，或直接粘贴链接",
     step3:             "AI 辅助解读，复杂问题交给中文客服",
@@ -232,8 +281,9 @@ const copy: Record<Locale, HomepageCopy> = {
     aiZoneTitle:       "没找到答案？直接问",
     aiPlaceholder:     "说出你的情况，例如：我是越南人，想在大阪租 1K…",
     aiSendLabel:       "发送",
-    aiDisclaimer:      "分析结果仅供参考，具体以平台页面及人工确认信息为准。",
+    aiDisclaimer:      "AI 解读供参考，关键条款建议人工复核",
     aiQuotaFmt:        "今日剩余 {remaining}/{limit} 次",
+    aiQuotaReset:      "每天 0 点重置",
     aiQuotaExhausted:  "今日额度已用完，明日零点重置。如需继续，可联系人工帮助。",
     aiThinking:        "正在分析中…",
     aiError:           "请求出错，请稍后再试。也可以直接联系人工帮助。",
@@ -282,10 +332,13 @@ const copy: Record<Locale, HomepageCopy> = {
     channelEmail:      "邮件",
     channelWhatsApp:   "WhatsApp",
     channelPhone:      "电话",
+    humanReplyTime:    "通常 2 小时内回复",
+    humanFallback:     "联系方式配置中，请稍后",
 
     externalLabel:     "外部链接",
     externalNote:      "将跳转至外部房产平台，与本站无从属关系",
 
+    footerOperator:    "运营方：",
     footerDisclaimer:  "内容为信息辅助，不构成法律意见。具体以官方机构及专业人士意见为准。",
     footerPrivacy:     "隐私政策",
     footerTerms:       "服务条款",
@@ -294,11 +347,11 @@ const copy: Record<Locale, HomepageCopy> = {
     tier2Notice:       "",
 
     // V6 Trust & Transparency
-    trustPromise1:        "身份已核实",
-    trustPromise2:        "文件已验证",
-    trustPromise3:        "流程可追溯",
-    trustPromise4:        "风险已说明",
-    trustPromise5:        "数据已保护",
+    trustPromise1:        "身份可验证",
+    trustPromise2:        "文件可验真",
+    trustPromise3:        "流程可追踪",
+    trustPromise4:        "风险可解释",
+    trustPromise5:        "数据被保护",
     trustPromise1Detail:  "中介资质通过国土交通省数据库核验",
     trustPromise2Detail:  "上传文件与公开数据库交叉比对",
     trustPromise3Detail:  "每步操作记录存证，可随时查阅",
@@ -338,6 +391,47 @@ const copy: Record<Locale, HomepageCopy> = {
     verifyNavLabel:      "验证记录",
     footerComplianceNote:  "本平台不提供法律、税务或投资建议。所有分析结果仅供参考。",
     footerReportViolation: "举报违规",
+    footerEvidenceVerify:  "存证查询",
+
+    // ZONE 1
+    lossAversionText:      "在日本，39.3% 的外国人曾因国籍被拒租（法务省数据）",
+    lossAversionSource:    "法务省",
+    statBannerPercent:     "39%",
+    statBannerText:        "外国人曾因国籍被拒租（法务省数据）",
+    statBannerCta:         "查看避坑攻略 →",
+    statBannerSource:      "数据来源：法务省外国人住民調査報告書",
+
+    // ZONE 4
+    analysisTimestampNote: "本次分析结果将生成时间戳记录，供您后续核验",
+
+    // ZONE 4c
+    viewTrustDashboard:    "查看可信看板",
+
+    // ZONE 6 actions
+    trustAction1Label:     "国土交通省核查 ↗",
+    trustAction2aLabel:    "了解验证方法",
+    trustAction2bLabel:    "查看存证记录",
+    trustAction3Label:     "查看操作历史",
+    trustAction3LoginHint: "需登录",
+    trustAction4Label:     "查看风险评估方法",
+    trustAction5aLabel:    "隐私政策",
+    trustAction5bLabel:    "申请删除数据",
+
+    // ZONE 6b extras
+    transparencyDisclaimer:   "以上信息用于技术透明，不改变「仅供参考」的性质",
+    transparencyExpandLabel:  "展开",
+    transparencyAnalysisTime: "分析时间",
+    transparencyEvidenceHash: "存证摘要",
+    transparencyViewFull:     "查看完整",
+
+    // ZONE 8 items
+    confirmSendItem1:     "分析截图缩略图",
+    confirmSendItem2:     "AI 分析摘要（非原文）",
+    confirmSendItem3:     "您的问题内容",
+    confirmSendItem4:     "操作时间戳",
+    confirmNotSendItem1:  "截图原文件",
+    confirmNotSendItem2:  "您的身份信息（未登录时）",
+    confirmNotSendItem3:  "设备信息",
   },
 
   // ──────────────────────────────────────────────────────────────────────
@@ -357,6 +451,7 @@ const copy: Record<Locale, HomepageCopy> = {
     card3Hint:         "AI answers · human backup",
 
     guideTitle:        'How to use "Browse listings"? Three steps:',
+    guidePlatformHint: "① Browse listings → ② Copy the URL → ③ Paste it here to analyze",
     step1:             "Click a platform link below to browse AtHome / SUUMO",
     step2:             "Find something you like → screenshot, or paste the link here",
     step3:             "AI helps read the listing; complex questions go to a human agent",
@@ -372,8 +467,9 @@ const copy: Record<Locale, HomepageCopy> = {
     aiZoneTitle:       "Didn't find an answer? Ask directly",
     aiPlaceholder:     "Describe your situation, e.g. I'm Vietnamese looking for a 1K in Osaka…",
     aiSendLabel:       "Send",
-    aiDisclaimer:      "AI analysis is for reference only. Verify details with the listing page or a human agent.",
+    aiDisclaimer:      "AI summary is for reference — verify key clauses with a human agent",
     aiQuotaFmt:        "{remaining}/{limit} uses left today",
+    aiQuotaReset:      "Resets at midnight",
     aiQuotaExhausted:  "Daily limit reached. Resets at midnight. Contact a human agent to continue.",
     aiThinking:        "Thinking…",
     aiError:           "Something went wrong. Please try again or contact a human agent.",
@@ -422,10 +518,13 @@ const copy: Record<Locale, HomepageCopy> = {
     channelEmail:      "Email",
     channelWhatsApp:   "WhatsApp",
     channelPhone:      "Phone",
+    humanReplyTime:    "Usually replies within 2 hours",
+    humanFallback:     "Contact channels are being set up, please check back later",
 
     externalLabel:     "External link",
     externalNote:      "Opens an external property platform. Not affiliated with this site.",
 
+    footerOperator:    "Operated by: ",
     footerDisclaimer:  "Content is for informational purposes only and does not constitute legal advice. Consult official sources and qualified professionals for specific guidance.",
     footerPrivacy:     "Privacy policy",
     footerTerms:       "Terms of service",
@@ -434,10 +533,10 @@ const copy: Record<Locale, HomepageCopy> = {
     tier2Notice:       "",
 
     // V6 Trust & Transparency
-    trustPromise1:        "Identity verified",
-    trustPromise2:        "Documents authenticated",
-    trustPromise3:        "Process traceable",
-    trustPromise4:        "Risks explained",
+    trustPromise1:        "Identity verifiable",
+    trustPromise2:        "Documents verifiable",
+    trustPromise3:        "Process trackable",
+    trustPromise4:        "Risks explainable",
     trustPromise5:        "Data protected",
     trustPromise1Detail:  "Agent licence verified against MLIT database",
     trustPromise2Detail:  "Uploaded documents cross-referenced with public records",
@@ -478,6 +577,41 @@ const copy: Record<Locale, HomepageCopy> = {
     verifyNavLabel:      "Verify record",
     footerComplianceNote:  "This platform does not provide legal, tax, or investment advice. All analysis results are for reference only.",
     footerReportViolation: "Report a violation",
+    footerEvidenceVerify:  "Verify evidence",
+
+    lossAversionText:      "In Japan, 39.3% of foreign residents have been refused rental due to nationality (MOJ data)",
+    lossAversionSource:    "Ministry of Justice",
+    statBannerPercent:     "39%",
+    statBannerText:        "of foreigners refused rental due to nationality (MOJ data)",
+    statBannerCta:         "See tips to avoid pitfalls →",
+    statBannerSource:      "Source: MOJ Foreign Resident Survey Report",
+
+    analysisTimestampNote: "This analysis will generate a timestamp record for your future verification",
+
+    viewTrustDashboard:    "View trust dashboard",
+
+    trustAction1Label:     "Check MLIT database ↗",
+    trustAction2aLabel:    "Learn verification method",
+    trustAction2bLabel:    "View evidence record",
+    trustAction3Label:     "View operation history",
+    trustAction3LoginHint: "Login required",
+    trustAction4Label:     "View risk assessment method",
+    trustAction5aLabel:    "Privacy policy",
+    trustAction5bLabel:    "Request data deletion",
+
+    transparencyDisclaimer:   "The above is for technical transparency and does not change the 'for reference only' nature",
+    transparencyExpandLabel:  "Expand",
+    transparencyAnalysisTime: "Analysis time",
+    transparencyEvidenceHash: "Evidence digest",
+    transparencyViewFull:     "View full",
+
+    confirmSendItem1:     "Analysis screenshot thumbnail",
+    confirmSendItem2:     "AI analysis summary (not original text)",
+    confirmSendItem3:     "Your question content",
+    confirmSendItem4:     "Operation timestamp",
+    confirmNotSendItem1:  "Original screenshot file",
+    confirmNotSendItem2:  "Your identity information (when not logged in)",
+    confirmNotSendItem3:  "Device information",
   },
 
   // ──────────────────────────────────────────────────────────────────────
@@ -497,6 +631,7 @@ const copy: Record<Locale, HomepageCopy> = {
     card3Hint:         "AI回答 · 有人サポート",
 
     guideTitle:        "「物件を見てから」の使い方（3ステップ）",
+    guidePlatformHint: "① 物件を探す → ② URLをコピー → ③ ここに貼り付けて分析",
     step1:             "下記のリンクから AtHome / SUUMO を開いて物件を探す",
     step2:             "気になる物件はスクリーンショット、またはURLをコピーして戻る",
     step3:             "AIが主な内容を解析；複雑な質問は担当者が対応",
@@ -512,8 +647,9 @@ const copy: Record<Locale, HomepageCopy> = {
     aiZoneTitle:       "答えが見つからない場合は直接質問",
     aiPlaceholder:     "状況を教えてください。例：大阪で1Kを探しているベトナム人です…",
     aiSendLabel:       "送信",
-    aiDisclaimer:      "AI の分析結果はあくまで参考情報です。詳細は各物件ページや担当者にご確認ください。",
+    aiDisclaimer:      "AI の解読は参考用です。重要な条項は人間の担当者にご確認ください",
     aiQuotaFmt:        "本日残り {remaining}/{limit} 回",
+    aiQuotaReset:      "毎日0時リセット",
     aiQuotaExhausted:  "本日の利用回数に達しました。深夜0時にリセットされます。引き続きご相談の場合は担当者へお問い合わせください。",
     aiThinking:        "分析中…",
     aiError:           "エラーが発生しました。もう一度お試しいただくか、担当者にお問い合わせください。",
@@ -562,10 +698,13 @@ const copy: Record<Locale, HomepageCopy> = {
     channelEmail:      "メール",
     channelWhatsApp:   "WhatsApp",
     channelPhone:      "電話",
+    humanReplyTime:    "通常2時間以内に返信",
+    humanFallback:     "連絡先を設定中です。しばらくお待ちください",
 
     externalLabel:     "外部リンク",
     externalNote:      "外部の不動産プラットフォームに移動します。本サイトとの提携関係はありません。",
 
+    footerOperator:    "運営者：",
     footerDisclaimer:  "本コンテンツは情報提供のみを目的としており、法的アドバイスを構成するものではありません。具体的な事項については、公的機関や専門家にご相談ください。",
     footerPrivacy:     "プライバシーポリシー",
     footerTerms:       "利用規約",
@@ -574,11 +713,11 @@ const copy: Record<Locale, HomepageCopy> = {
     tier2Notice:       "",
 
     // V6 Trust & Transparency
-    trustPromise1:        "本人確認済み",
-    trustPromise2:        "書類認証済み",
+    trustPromise1:        "本人確認可能",
+    trustPromise2:        "書類検証可能",
     trustPromise3:        "プロセス追跡可能",
-    trustPromise4:        "リスク説明済み",
-    trustPromise5:        "データ保護済み",
+    trustPromise4:        "リスク説明可能",
+    trustPromise5:        "データ保護",
     trustPromise1Detail:  "仲介業者の免許を国土交通省データベースで照合済み",
     trustPromise2Detail:  "アップロードされた書類を公開データベースと照合",
     trustPromise3Detail:  "各ステップが証拠記録として保存され、確認可能",
@@ -618,6 +757,41 @@ const copy: Record<Locale, HomepageCopy> = {
     verifyNavLabel:      "記録を検証",
     footerComplianceNote:  "本プラットフォームは法律、税務、投資に関する助言を提供しません。分析結果は参考情報としてのみご利用ください。",
     footerReportViolation: "違反を報告",
+    footerEvidenceVerify:  "証拠照会",
+
+    lossAversionText:      "日本では外国人の39.3%が国籍を理由に賃貸を断られた経験があります（法務省データ）",
+    lossAversionSource:    "法務省",
+    statBannerPercent:     "39%",
+    statBannerText:        "の外国人が国籍を理由に賃貸を断られています（法務省データ）",
+    statBannerCta:         "回避ガイドを見る →",
+    statBannerSource:      "出典：法務省外国人住民調査報告書",
+
+    analysisTimestampNote: "この分析結果にはタイムスタンプ記録が生成され、今後の検証に利用できます",
+
+    viewTrustDashboard:    "信頼ダッシュボードを見る",
+
+    trustAction1Label:     "国土交通省で確認 ↗",
+    trustAction2aLabel:    "検証方法を確認",
+    trustAction2bLabel:    "証拠記録を見る",
+    trustAction3Label:     "操作履歴を見る",
+    trustAction3LoginHint: "ログインが必要",
+    trustAction4Label:     "リスク評価方法を見る",
+    trustAction5aLabel:    "プライバシーポリシー",
+    trustAction5bLabel:    "データ削除を申請",
+
+    transparencyDisclaimer:   "上記は技術的透明性のための情報であり、「参考情報」の性質を変えるものではありません",
+    transparencyExpandLabel:  "展開",
+    transparencyAnalysisTime: "分析時間",
+    transparencyEvidenceHash: "証拠ダイジェスト",
+    transparencyViewFull:     "全文を見る",
+
+    confirmSendItem1:     "分析スクリーンショットのサムネイル",
+    confirmSendItem2:     "AI分析の要約（原文ではない）",
+    confirmSendItem3:     "ご質問の内容",
+    confirmSendItem4:     "操作タイムスタンプ",
+    confirmNotSendItem1:  "元のスクリーンショットファイル",
+    confirmNotSendItem2:  "お客様の身元情報（未ログイン時）",
+    confirmNotSendItem3:  "デバイス情報",
   },
 
   // ──────────────────────────────────────────────────────────────────────
@@ -641,6 +815,7 @@ const copy: Record<Locale, HomepageCopy> = {
     card3Hint:         "AI 답변 · 상담원 백업",
 
     guideTitle:        "「매물 보기」 사용법 (3단계):",
+    guidePlatformHint: "① 매물 보기 → ② URL 복사 → ③ 여기에 붙여넣어 분석",
     step1:             "아래 링크를 눌러 AtHome / SUUMO에서 매물 확인",
     step2:             "마음에 드는 매물 스크린샷 찍거나 링크 복사해서 돌아오기",
     step3:             "AI가 주요 내용 분석; 복잡한 질문은 상담원이 처리",
@@ -656,8 +831,9 @@ const copy: Record<Locale, HomepageCopy> = {
     aiZoneTitle:       "답을 못 찾으셨나요? 직접 물어보세요",
     aiPlaceholder:     "상황을 설명해 주세요, 예: 오사카에서 1K를 찾는 베트남인입니다…",
     aiSendLabel:       "전송",
-    aiDisclaimer:      "AI 분석 결과는 참고용입니다. 상세 내용은 매물 페이지 또는 상담원에게 확인하세요.",
+    aiDisclaimer:      "AI 해석은 참고용입니다. 주요 조항은 상담원에게 확인하세요",
     aiQuotaFmt:        "오늘 남은 횟수 {remaining}/{limit}",
+    aiQuotaReset:      "매일 자정 초기화",
     aiQuotaExhausted:  "오늘 한도에 도달했습니다. 자정에 초기화됩니다. 계속하려면 상담원에게 문의하세요.",
     aiThinking:        "분석 중…",
     aiError:           "오류가 발생했습니다. 다시 시도하거나 상담원에게 문의하세요.",
@@ -706,10 +882,13 @@ const copy: Record<Locale, HomepageCopy> = {
     channelEmail:      "이메일",
     channelWhatsApp:   "WhatsApp",
     channelPhone:      "전화",
+    humanReplyTime:    "보통 2시간 이내 답변",
+    humanFallback:     "연락처를 설정 중입니다. 나중에 다시 확인해주세요",
 
     externalLabel:     "외부 링크",
     externalNote:      "외부 부동산 플랫폼으로 이동합니다. 본 사이트와 제휴 관계 없음.",
 
+    footerOperator:    "운영자: ",
     footerDisclaimer:  "본 콘텐츠는 정보 제공 목적이며 법률 조언이 아닙니다. 구체적인 사항은 공공기관 및 전문가에게 확인하세요.",
     footerPrivacy:     "개인정보 처리방침",
     footerTerms:       "이용약관",
@@ -718,11 +897,11 @@ const copy: Record<Locale, HomepageCopy> = {
     tier2Notice:       "핵심 콘텐츠가 번역되었습니다. 전체 FAQ는 영어 또는 중국어를 참조하세요.",
 
     // V6 Trust & Transparency
-    trustPromise1:        "신원 확인됨",
-    trustPromise2:        "서류 인증됨",
+    trustPromise1:        "신원 확인 가능",
+    trustPromise2:        "서류 검증 가능",
     trustPromise3:        "절차 추적 가능",
-    trustPromise4:        "위험 설명됨",
-    trustPromise5:        "데이터 보호됨",
+    trustPromise4:        "위험 설명 가능",
+    trustPromise5:        "데이터 보호",
     trustPromise1Detail:  "중개업자 면허를 국토교통성 데이터베이스에서 확인",
     trustPromise2Detail:  "업로드된 서류를 공개 기록과 대조 확인",
     trustPromise3Detail:  "모든 단계가 증거 기록으로 저장되어 확인 가능",
@@ -762,6 +941,36 @@ const copy: Record<Locale, HomepageCopy> = {
     verifyNavLabel:      "기록 검증",
     footerComplianceNote:  "본 플랫폼은 법률, 세무 또는 투자 조언을 제공하지 않습니다. 분석 결과는 참고용입니다.",
     footerReportViolation: "위반 신고",
+    footerEvidenceVerify:  "증거 조회",
+
+    lossAversionText:      "일본에서 외국인의 39.3%가 국적을 이유로 임대를 거절당한 경험이 있습니다 (법무성 데이터)",
+    lossAversionSource:    "법무성",
+    statBannerPercent:     "39%",
+    statBannerText:        "의 외국인이 국적 때문에 임대를 거절당했습니다 (법무성 데이터)",
+    statBannerCta:         "주의사항 가이드 보기 →",
+    statBannerSource:      "출처: 법무성 외국인주민조사보고서",
+    analysisTimestampNote: "이 분석 결과에는 향후 검증을 위한 타임스탬프 기록이 생성됩니다",
+    viewTrustDashboard:    "신뢰 대시보드 보기",
+    trustAction1Label:     "국토교통성 확인 ↗",
+    trustAction2aLabel:    "검증 방법 확인",
+    trustAction2bLabel:    "증거 기록 보기",
+    trustAction3Label:     "작업 이력 보기",
+    trustAction3LoginHint: "로그인 필요",
+    trustAction4Label:     "위험 평가 방법 보기",
+    trustAction5aLabel:    "개인정보 처리방침",
+    trustAction5bLabel:    "데이터 삭제 요청",
+    transparencyDisclaimer:   "위 정보는 기술적 투명성을 위한 것이며 '참고용'의 성격을 변경하지 않습니다",
+    transparencyExpandLabel:  "펼치기",
+    transparencyAnalysisTime: "분석 시간",
+    transparencyEvidenceHash: "증거 다이제스트",
+    transparencyViewFull:     "전체 보기",
+    confirmSendItem1:     "분석 스크린샷 썸네일",
+    confirmSendItem2:     "AI 분석 요약 (원문 아님)",
+    confirmSendItem3:     "질문 내용",
+    confirmSendItem4:     "작업 타임스탬프",
+    confirmNotSendItem1:  "원본 스크린샷 파일",
+    confirmNotSendItem2:  "신원 정보 (미로그인 시)",
+    confirmNotSendItem3:  "기기 정보",
   },
 
   "vi": {
@@ -780,6 +989,7 @@ const copy: Record<Locale, HomepageCopy> = {
     card3Hint:         "AI trả lời · Người hỗ trợ dự phòng",
 
     guideTitle:        "Cách dùng \"Xem nhà trước\" (3 bước):",
+    guidePlatformHint: "① Xem nhà → ② Sao chép URL → ③ Dán vào đây để phân tích",
     step1:             "Nhấn link bên dưới để xem nhà trên AtHome / SUUMO",
     step2:             "Thấy nhà ưng ý → chụp màn hình hoặc dán link về đây",
     step3:             "AI hỗ trợ đọc thông tin; câu hỏi phức tạp có người thật giải đáp",
@@ -795,8 +1005,9 @@ const copy: Record<Locale, HomepageCopy> = {
     aiZoneTitle:       "Không tìm thấy câu trả lời? Hỏi trực tiếp",
     aiPlaceholder:     "Mô tả tình huống của bạn, ví dụ: tôi là người Việt muốn thuê 1K ở Osaka…",
     aiSendLabel:       "Gửi",
-    aiDisclaimer:      "Kết quả phân tích chỉ mang tính tham khảo. Vui lòng xác nhận với trang nhà hoặc người hỗ trợ.",
+    aiDisclaimer:      "Giải thích AI chỉ mang tính tham khảo — hãy xác nhận điều khoản quan trọng với nhân viên",
     aiQuotaFmt:        "Còn {remaining}/{limit} lượt hôm nay",
+    aiQuotaReset:      "Đặt lại lúc nửa đêm",
     aiQuotaExhausted:  "Đã hết lượt hôm nay. Đặt lại lúc nửa đêm. Liên hệ người hỗ trợ để tiếp tục.",
     aiThinking:        "Đang phân tích…",
     aiError:           "Đã xảy ra lỗi. Vui lòng thử lại hoặc liên hệ người hỗ trợ.",
@@ -845,10 +1056,13 @@ const copy: Record<Locale, HomepageCopy> = {
     channelEmail:      "Email",
     channelWhatsApp:   "WhatsApp",
     channelPhone:      "Điện thoại",
+    humanReplyTime:    "Thường trả lời trong vòng 2 giờ",
+    humanFallback:     "Đang thiết lập kênh liên hệ, vui lòng quay lại sau",
 
     externalLabel:     "Liên kết ngoài",
     externalNote:      "Chuyển đến nền tảng bất động sản bên ngoài. Không liên kết với trang này.",
 
+    footerOperator:    "Vận hành bởi: ",
     footerDisclaimer:  "Nội dung chỉ mang tính thông tin và không phải tư vấn pháp lý. Tham khảo cơ quan chức năng và chuyên gia cho các vấn đề cụ thể.",
     footerPrivacy:     "Chính sách bảo mật",
     footerTerms:       "Điều khoản dịch vụ",
@@ -857,10 +1071,10 @@ const copy: Record<Locale, HomepageCopy> = {
     tier2Notice:       "Nội dung cốt lõi đã được dịch. Xem đầy đủ FAQ bằng tiếng Anh hoặc tiếng Trung.",
 
     // V6 Trust & Transparency
-    trustPromise1:        "Danh tính đã xác minh",
-    trustPromise2:        "Tài liệu đã xác thực",
-    trustPromise3:        "Quy trình có thể truy vết",
-    trustPromise4:        "Rủi ro đã được giải thích",
+    trustPromise1:        "Danh tính có thể xác minh",
+    trustPromise2:        "Tài liệu có thể xác thực",
+    trustPromise3:        "Quy trình có thể theo dõi",
+    trustPromise4:        "Rủi ro có thể giải thích",
     trustPromise5:        "Dữ liệu được bảo vệ",
     trustPromise1Detail:  "Giấy phép môi giới đã được xác minh qua CSDL Bộ GTVT",
     trustPromise2Detail:  "Tài liệu tải lên được đối chiếu với hồ sơ công khai",
@@ -901,6 +1115,36 @@ const copy: Record<Locale, HomepageCopy> = {
     verifyNavLabel:      "Xác minh hồ sơ",
     footerComplianceNote:  "Nền tảng này không cung cấp tư vấn pháp lý, thuế hoặc đầu tư. Kết quả phân tích chỉ mang tính tham khảo.",
     footerReportViolation: "Báo cáo vi phạm",
+    footerEvidenceVerify:  "Xác minh bằng chứng",
+
+    lossAversionText:      "Tại Nhật, 39,3% cư dân nước ngoài từng bị từ chối thuê nhà vì quốc tịch (dữ liệu Bộ Tư pháp)",
+    lossAversionSource:    "Bộ Tư pháp",
+    statBannerPercent:     "39%",
+    statBannerText:        "cư dân nước ngoài bị từ chối thuê nhà vì quốc tịch (dữ liệu Bộ Tư pháp)",
+    statBannerCta:         "Xem hướng dẫn tránh rủi ro →",
+    statBannerSource:      "Nguồn: Báo cáo khảo sát cư dân nước ngoài, Bộ Tư pháp",
+    analysisTimestampNote: "Kết quả phân tích này sẽ tạo bản ghi dấu thời gian để bạn xác minh sau",
+    viewTrustDashboard:    "Xem bảng tin cậy",
+    trustAction1Label:     "Kiểm tra MLIT ↗",
+    trustAction2aLabel:    "Tìm hiểu phương pháp xác minh",
+    trustAction2bLabel:    "Xem hồ sơ bằng chứng",
+    trustAction3Label:     "Xem lịch sử thao tác",
+    trustAction3LoginHint: "Cần đăng nhập",
+    trustAction4Label:     "Xem phương pháp đánh giá rủi ro",
+    trustAction5aLabel:    "Chính sách bảo mật",
+    trustAction5bLabel:    "Yêu cầu xóa dữ liệu",
+    transparencyDisclaimer:   "Thông tin trên nhằm minh bạch kỹ thuật, không thay đổi tính chất 'tham khảo'",
+    transparencyExpandLabel:  "Mở rộng",
+    transparencyAnalysisTime: "Thời gian phân tích",
+    transparencyEvidenceHash: "Tóm tắt bằng chứng",
+    transparencyViewFull:     "Xem đầy đủ",
+    confirmSendItem1:     "Hình thu nhỏ ảnh chụp phân tích",
+    confirmSendItem2:     "Tóm tắt phân tích AI (không phải văn bản gốc)",
+    confirmSendItem3:     "Nội dung câu hỏi của bạn",
+    confirmSendItem4:     "Dấu thời gian thao tác",
+    confirmNotSendItem1:  "Tệp ảnh chụp gốc",
+    confirmNotSendItem2:  "Thông tin danh tính (khi chưa đăng nhập)",
+    confirmNotSendItem3:  "Thông tin thiết bị",
   },
 
   "th": {
@@ -919,6 +1163,7 @@ const copy: Record<Locale, HomepageCopy> = {
     card3Hint:         "AI ตอบ · ทีมงานสำรอง",
 
     guideTitle:        "วิธีใช้ \"ดูห้องก่อน\" (3 ขั้นตอน):",
+    guidePlatformHint: "① ดูห้อง → ② คัดลอก URL → ③ วางที่นี่เพื่อวิเคราะห์",
     step1:             "คลิกลิงก์ด้านล่างเพื่อดูห้องบน AtHome / SUUMO",
     step2:             "เจอห้องที่ชอบ → สกรีนช็อตหรือวางลิงก์กลับมา",
     step3:             "AI ช่วยอ่านข้อมูลหลัก; คำถามซับซ้อนมีทีมงานดูแล",
@@ -934,8 +1179,9 @@ const copy: Record<Locale, HomepageCopy> = {
     aiZoneTitle:       "ไม่พบคำตอบ? ถามได้เลย",
     aiPlaceholder:     "อธิบายสถานการณ์ เช่น ฉันเป็นคนไทยอยากเช่า 1K ที่โอซาก้า…",
     aiSendLabel:       "ส่ง",
-    aiDisclaimer:      "ผลการวิเคราะห์เพื่ออ้างอิงเท่านั้น กรุณาตรวจสอบกับหน้าประกาศหรือทีมงาน",
+    aiDisclaimer:      "การตีความของ AI เป็นเพียงข้อมูลอ้างอิง — กรุณาตรวจสอบข้อสำคัญกับเจ้าหน้าที่",
     aiQuotaFmt:        "เหลือ {remaining}/{limit} ครั้งวันนี้",
+    aiQuotaReset:      "รีเซ็ตเที่ยงคืน",
     aiQuotaExhausted:  "ใช้ครบโควต้าวันนี้แล้ว รีเซ็ตเที่ยงคืน ติดต่อทีมงานเพื่อดำเนินการต่อ",
     aiThinking:        "กำลังวิเคราะห์…",
     aiError:           "เกิดข้อผิดพลาด โปรดลองอีกครั้งหรือติดต่อเจ้าหน้าที่",
@@ -984,10 +1230,13 @@ const copy: Record<Locale, HomepageCopy> = {
     channelEmail:      "อีเมล",
     channelWhatsApp:   "WhatsApp",
     channelPhone:      "โทรศัพท์",
+    humanReplyTime:    "ปกติตอบกลับภายใน 2 ชั่วโมง",
+    humanFallback:     "กำลังตั้งค่าช่องทางติดต่อ กรุณากลับมาภายหลัง",
 
     externalLabel:     "ลิงก์ภายนอก",
     externalNote:      "ไปยังแพลตฟอร์มอสังหาริมทรัพย์ภายนอก ไม่มีความสัมพันธ์กับเว็บไซต์นี้",
 
+    footerOperator:    "ดำเนินการโดย: ",
     footerDisclaimer:  "เนื้อหาเพื่อให้ข้อมูลเท่านั้น ไม่ใช่คำแนะนำทางกฎหมาย ปรึกษาหน่วยงานและผู้เชี่ยวชาญสำหรับกรณีเฉพาะ",
     footerPrivacy:     "นโยบายความเป็นส่วนตัว",
     footerTerms:       "ข้อกำหนดการใช้งาน",
@@ -996,10 +1245,10 @@ const copy: Record<Locale, HomepageCopy> = {
     tier2Notice:       "เนื้อหาหลักได้รับการแปลแล้ว ดู FAQ ฉบับเต็มเป็นภาษาอังกฤษหรือจีน",
 
     // V6 Trust & Transparency
-    trustPromise1:        "ยืนยันตัวตนแล้ว",
-    trustPromise2:        "เอกสารรับรองแล้ว",
+    trustPromise1:        "ยืนยันตัวตนได้",
+    trustPromise2:        "เอกสารตรวจสอบได้",
     trustPromise3:        "กระบวนการติดตามได้",
-    trustPromise4:        "อธิบายความเสี่ยงแล้ว",
+    trustPromise4:        "อธิบายความเสี่ยงได้",
     trustPromise5:        "ข้อมูลได้รับการปกป้อง",
     trustPromise1Detail:  "ใบอนุญาตนายหน้าตรวจสอบผ่านฐานข้อมูลกระทรวงที่ดิน",
     trustPromise2Detail:  "เอกสารที่อัปโหลดตรวจสอบกับบันทึกสาธารณะ",
@@ -1040,6 +1289,36 @@ const copy: Record<Locale, HomepageCopy> = {
     verifyNavLabel:      "ตรวจสอบบันทึก",
     footerComplianceNote:  "แพลตฟอร์มนี้ไม่ให้คำแนะนำทางกฎหมาย ภาษี หรือการลงทุน ผลวิเคราะห์ใช้เพื่อการอ้างอิงเท่านั้น",
     footerReportViolation: "แจ้งการละเมิด",
+    footerEvidenceVerify:  "ตรวจสอบหลักฐาน",
+
+    lossAversionText:      "ในญี่ปุ่น 39.3% ของชาวต่างชาติเคยถูกปฏิเสธการเช่าเนื่องจากสัญชาติ (ข้อมูลกระทรวงยุติธรรม)",
+    lossAversionSource:    "กระทรวงยุติธรรม",
+    statBannerPercent:     "39%",
+    statBannerText:        "ของชาวต่างชาติถูกปฏิเสธการเช่าเนื่องจากสัญชาติ (ข้อมูลกระทรวงยุติธรรม)",
+    statBannerCta:         "ดูคำแนะนำหลีกเลี่ยงปัญหา →",
+    statBannerSource:      "แหล่งที่มา: รายงานสำรวจผู้พำนักต่างชาติ กระทรวงยุติธรรม",
+    analysisTimestampNote: "ผลการวิเคราะห์นี้จะสร้างบันทึกเวลาประทับเพื่อการตรวจสอบในอนาคต",
+    viewTrustDashboard:    "ดูแดชบอร์ดความน่าเชื่อถือ",
+    trustAction1Label:     "ตรวจสอบ MLIT ↗",
+    trustAction2aLabel:    "เรียนรู้วิธีตรวจสอบ",
+    trustAction2bLabel:    "ดูบันทึกหลักฐาน",
+    trustAction3Label:     "ดูประวัติการทำงาน",
+    trustAction3LoginHint: "ต้องเข้าสู่ระบบ",
+    trustAction4Label:     "ดูวิธีประเมินความเสี่ยง",
+    trustAction5aLabel:    "นโยบายความเป็นส่วนตัว",
+    trustAction5bLabel:    "ขอลบข้อมูล",
+    transparencyDisclaimer:   "ข้อมูลข้างต้นมีไว้เพื่อความโปร่งใสทางเทคนิค ไม่เปลี่ยนแปลงลักษณะ 'เพื่อการอ้างอิง'",
+    transparencyExpandLabel:  "ขยาย",
+    transparencyAnalysisTime: "เวลาวิเคราะห์",
+    transparencyEvidenceHash: "สรุปหลักฐาน",
+    transparencyViewFull:     "ดูทั้งหมด",
+    confirmSendItem1:     "ภาพขนาดย่อของภาพหน้าจอวิเคราะห์",
+    confirmSendItem2:     "สรุปการวิเคราะห์ AI (ไม่ใช่ข้อความต้นฉบับ)",
+    confirmSendItem3:     "เนื้อหาคำถามของคุณ",
+    confirmSendItem4:     "เวลาประทับการดำเนินงาน",
+    confirmNotSendItem1:  "ไฟล์ภาพหน้าจอต้นฉบับ",
+    confirmNotSendItem2:  "ข้อมูลตัวตนของคุณ (เมื่อยังไม่เข้าสู่ระบบ)",
+    confirmNotSendItem3:  "ข้อมูลอุปกรณ์",
   },
 };
 

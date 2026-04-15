@@ -23,6 +23,7 @@ export const Events = {
 
   // FAQ
   FAQ_CLICK:               "faq_click",
+  FAQ_TAB_CLICK:           "faq_tab_click",
 
   // AI zone
   AI_OPEN:                 "ai_open",
@@ -46,6 +47,13 @@ export const Events = {
   // Language
   LANG_SWITCH:             "lang_switch",
 
+  // V5 additions
+  STAT_BANNER_CLICK:       "stat_banner_click",
+  GUIDE_EXPAND:            "guide_expand",
+  AI_STREAM_COMPLETE:      "ai_stream_complete",
+  UPGRADE_HINT_SHOWN:      "upgrade_hint_shown",
+  UPGRADE_HINT_CLICK:      "upgrade_hint_click",
+
   // V6 Trust & Transparency events
   TRUST_DASHBOARD_VIEW:    "trust_dashboard_view",
   TRUST_PROMISE_CLICK:     "trust_promise_click",
@@ -65,10 +73,9 @@ export interface TrackPayload {
 /**
  * Fire-and-forget analytics call.
  * Never throws. Never blocks the UI thread.
- * Replace the body with your real analytics SDK call.
+ * Sends events to /api/behavior for server-side persistence.
  */
 export function track(event: EventName, payload?: TrackPayload): void {
-  // TODO: replace with real analytics (e.g. PostHog, Amplitude, custom endpoint)
   if (process.env.NODE_ENV !== "production") {
     try {
       const { devLog } = require("@/lib/utils/dev-log");
@@ -78,11 +85,10 @@ export function track(event: EventName, payload?: TrackPayload): void {
     }
   }
 
-  // Example real implementation:
-  // fetch("/api/analytics", {
-  //   method: "POST",
-  //   headers: { "Content-Type": "application/json" },
-  //   body: JSON.stringify({ event, ...payload, ts: Date.now() }),
-  //   keepalive: true,   // survives page unload
-  // }).catch(() => {});  // swallow all errors — analytics must never break the page
+  fetch("/api/behavior", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ event, ...payload, ts: Date.now() }),
+    keepalive: true,
+  }).catch(() => {});
 }

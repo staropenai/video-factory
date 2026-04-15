@@ -32,6 +32,7 @@ export const EVENT_TYPES = [
   'RETRIEVE_HIT_REALTIME',
   'RETRIEVE_HIT_AI_INFERRED',
   'CONTACT_FORM_SUBMIT',
+  'BEHAVIOR',
 ] as const
 export type EventType = (typeof EVENT_TYPES)[number]
 

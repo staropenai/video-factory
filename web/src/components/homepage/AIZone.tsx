@@ -29,10 +29,9 @@ interface Props {
     | "aiZoneTitle"
     | "aiPlaceholder"
     | "aiSendLabel"
-    | "aiDisclaimer"
     | "aiQuotaFmt"
     | "aiQuotaExhausted"
-  >;
+  > & { aiQuotaReset?: string };
   locale: string;
   remaining: number;
   limit: number;
@@ -105,6 +104,9 @@ export function AIZone({ copy, locale, remaining, limit, onSubmit }: Props) {
             }}
           >
             {fmtQuota(copy.aiQuotaFmt, remaining, limit)}
+            {copy.aiQuotaReset && (
+              <span style={{ marginLeft: 4, opacity: 0.7 }}>· {copy.aiQuotaReset}</span>
+            )}
           </span>
         )}
       </div>
@@ -178,19 +180,7 @@ export function AIZone({ copy, locale, remaining, limit, onSubmit }: Props) {
         </p>
       )}
 
-      {/* Fixed disclaimer — spec §3.5 mandatory copy */}
-      {!blocked && (
-        <p
-          style={{
-            fontSize: 11,
-            color: "var(--color-text-tertiary)",
-            margin: "7px 0 0",
-            lineHeight: 1.5,
-          }}
-        >
-          {copy.aiDisclaimer}
-        </p>
-      )}
+      {/* Disclaimer moved to AIResponseArea — shown once after AI reply (spec §3.5) */}
     </section>
   );
 }
