@@ -15,3 +15,20 @@
 **预防规则：** 每次部署前 pwd 确认在 web/；检查构建日志 "Detected Next.js version" = 16.x
 
 **代价：** 多次构建失败，约 2 小时调试时间
+
+---
+
+## [PIT-009] .vercelignore 的 audit/ 模式匹配了 src/lib/audit/
+
+**发现时间：** 2026-04-16
+**状态：** 🟢 已根治
+
+**触发条件：** `.vercelignore` 中写 `audit/`（无前缀斜杠），Vercel 构建时排除了 `src/lib/audit/logger.ts` 等文件
+
+**根本原因：** Vercel 的 ignore 文件用 gitignore 语法，`audit/` 匹配任何路径中包含 `audit/` 的目录，包括 `src/lib/audit/`。需要 `/audit/` 才能限定为顶层目录。
+
+**修复方案：** `.vercelignore` 中 `audit/` → `/audit/`（PR #5）
+
+**预防规则：** `.vercelignore` 中每个目录模式都应带 `/` 前缀，除非确实需要递归匹配。添加新 ignore 规则后必须跑一次 `vercel build` 验证。
+
+**代价：** 一次生产部署失败（28 个 module-not-found），约 30 分钟修复
