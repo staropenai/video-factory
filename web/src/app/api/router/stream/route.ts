@@ -43,6 +43,7 @@ import {
   logSecurityEvent,
 } from "@/lib/security/event-log";
 import { resolveIdentity } from "@/lib/auth/identity";
+import { buildLayerHitEvent, recordLayerHit } from "@/lib/pipeline/writeback-hooks";
 import { devLogJson } from "@/lib/utils/dev-log";
 import {
   validateMessageLength,
@@ -246,6 +247,20 @@ export async function POST(req: NextRequest) {
         const fastLatency = Date.now() - startedAt;
         recordRouterLatency(fastLatency, tier, { fastPath: true, language: fastLang });
         recordTierHit(tier);
+
+        // V5 §P0-1: Layer 7 writeback — record layer hit for hit-rate tracking
+        queueMicrotask(() => {
+          try {
+            recordLayerHit(
+              buildLayerHitEvent(
+                { layers: [tier === "A" ? "L1_STATIC" : "L2_SEMANTIC"], sourceClass: "STATIC", llmCalled: false },
+                { queryId: requestId, cardId: fastTop?.id, sessionId },
+              ),
+            );
+          } catch (e) {
+            logError("stream_fast_writeback_error", e);
+          }
+        });
 
         // V5 T2: Evidence record with ttft_ms and kb_hit (non-blocking)
         queueMicrotask(() => {
@@ -497,6 +512,19 @@ export async function POST(req: NextRequest) {
           const tierCLatency = Date.now() - startedAt;
           recordRouterLatency(tierCLatency, "C", { language: detectedLanguage });
           recordTierHit("C");
+
+          // V5 §P0-1: Layer 7 writeback — record Tier C layer hit
+          try {
+            recordLayerHit(
+              buildLayerHitEvent(
+                { layers: ["L3_AI"], sourceClass: "AI", llmCalled: true },
+                { queryId: requestId, cardId: topMatch?.id, sessionId },
+              ),
+            );
+          } catch (e) {
+            logError("stream_tier_c_writeback_error", e);
+          }
+
           controller.enqueue(
             encoder.encode(
               sseEvent({

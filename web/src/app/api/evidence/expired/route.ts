@@ -15,8 +15,18 @@ import { ok, fail, rateLimited } from '@/lib/utils/api-response'
 import { checkRateLimit, extractClientIp, RATE_LIMIT_PRESETS } from '@/lib/security/rate-limit'
 
 export async function GET(req: NextRequest) {
-  const rl = checkRateLimit(`evidence-expired:${extractClientIp(req.headers)}`, RATE_LIMIT_PRESETS.ai);
-  if (!rl.allowed) return rateLimited(Math.ceil((rl.retryAfterMs ?? 60000) / 1000));
+  // Vercel Cron sends Authorization: Bearer <CRON_SECRET>.
+  // If CRON_SECRET is set, only allow cron or rate-limited public access.
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret) {
+    const auth = req.headers.get('authorization');
+    if (auth !== `Bearer ${cronSecret}`) {
+      return fail('Unauthorized', 401, 'UNAUTHORIZED');
+    }
+  } else {
+    const rl = checkRateLimit(`evidence-expired:${extractClientIp(req.headers)}`, RATE_LIMIT_PRESETS.ai);
+    if (!rl.allowed) return rateLimited(Math.ceil((rl.retryAfterMs ?? 60000) / 1000));
+  }
 
   try {
     const expired = findExpiredEvidence()

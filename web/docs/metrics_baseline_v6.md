@@ -101,16 +101,20 @@ has_audit_log:
   source: "src/lib/audit/logger.ts (logRouterDecision, logEscalation, logError)"
 
 has_rate_limiting:
-  current: false
-  action: "P0-3: Implement rate limiting middleware"
+  current: true
+  source: "src/lib/security/rate-limit.ts (dual-mode: Redis + in-memory fallback)"
+  evidence: "checkRateLimit() with RATE_LIMIT_PRESETS (api/ai/auth/strict)"
+  updated: "2026-04-15"
 
 has_prompt_injection_filter:
-  current: false
-  action: "P0-3A: Build src/lib/security/prompt-injection.ts"
+  current: true
+  source: "src/lib/security/prompt-injection.ts"
+  updated: "2026-04-15"
 
 has_security_event_log:
-  current: false
-  action: "P0-3B: Build src/lib/security/event-log.ts"
+  current: true
+  source: "src/lib/security/event-log.ts"
+  updated: "2026-04-15"
 
 has_waf:
   current: "Vercel default (basic DDoS protection)"
@@ -174,8 +178,9 @@ build_check:
   typescript: "clean (0 errors)"
   static_pages: "25/25 generated"
   routes_discovered: 17 dynamic + 8 static
+  last_verified: "2026-04-15"
 ```
 
 ---
 
-*This baseline will be updated after P0-3 (security modules) and after first production traffic.*
+*Updated 2026-04-15: P0-3 security modules (rate limiting, prompt injection, event log) now implemented. Next update after first production traffic.*
