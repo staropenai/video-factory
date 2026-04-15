@@ -1,0 +1,153 @@
+# JTG 审计输出模板（audit_output.yml）
+# 用途：每次任务完成后，Claude/Code 输出此格式
+# 审计机器人读取此格式进行自动评分和路由
+
+audit_output:
+  # ─── 基本信息 ──────────────────────────────────────────────────────
+  task_id: "TASK-YYYYMMDD-001"
+  audited_at: "YYYY-MM-DDTHH:MM:SSZ"
+  verdict: "pass"                        # pass | revise | block
+
+  # ─── 问题清单 ──────────────────────────────────────────────────────
+  findings:
+    - id: "AUD-001"
+      severity: "P0"                     # P0=必须修 | P1=重要 | P2=优化 | P3=建议
+      category: "compliance"             # compliance|fact|logic|structure|risk|expression
+      rule_ref: "IP-9"                   # 违反的规则 ID
+      location: "src/components/XXX.tsx:42"
+      problem: "【问题描述】"
+      evidence: "【grep 结果或文件片段】"
+      required_fix: "【具体修改建议】"
+
+  # ─── 强制修复项 ────────────────────────────────────────────────────
+  must_fix:                              # 所有 P0 问题的修复动作
+    - "【修复项 1】"
+
+  # ─── 评分 ──────────────────────────────────────────────────────────
+  scores:
+    fact_reliability: 0                  # 有未验证结论 ≤ 70
+    logic_rigor: 0                       # 有逻辑跳跃，按严重度扣分
+    structural_clarity: 0               # 无完成信号 ≤ 60
+    risk_control: 0                      # 有待确认未阻断 ≤ 50
+    ship_readiness: 0                    # 有 P0 问题 ≤ 40
+
+  # ─── 发布决策 ──────────────────────────────────────────────────────
+  release_decision: "do_not_ship"        # ship | do_not_ship
+  release_blockers:                      # 阻止发布的问题
+    - "【P0 问题描述】"
+
+  # ─── 知识资产更新指令 ──────────────────────────────────────────────
+  learning_updates:
+    update_baseline: false               # 是否需要刷新 latest.json
+    update_mnk_cards:                    # 需要更新的 MNK 卡
+      - "audit/mnk_cards/XXX.md"
+    create_pitfall: false                # 是否需要创建踩坑记录
+    pitfall_summary: ""                  # 若需要，一句话描述这个坑
+    propose_constraint_upgrade: false    # 是否建议升级为约束规则
+    constraint_proposal: ""             # 若需要，描述建议新增的约束
+
+  # ─── 下一轮任务种子 ────────────────────────────────────────────────
+  next_task_seed:
+    - "【下一步建议任务 1】"
+    - "【下一步建议任务 2】"
+
+---
+# ═══════════════════════════════════════════════════════════════════
+# 示例：一次通过的审计记录
+# ═══════════════════════════════════════════════════════════════════
+
+audit_output:
+  task_id: "TASK-20260415-001"
+  audited_at: "2026-04-15T11:30:00Z"
+  verdict: "pass"
+
+  findings:
+    - id: "AUD-001"
+      severity: "P2"
+      category: "expression"
+      rule_ref: "IT-2"
+      location: "src/lib/i18n/homepage.ts:humanNoContact"
+      problem: "「联系方式配置中，请稍后」语气较被动，可优化"
+      evidence: "humanNoContact: '联系方式配置中，请稍后'"
+      required_fix: "建议改为「客服通道准备中，如有急需请发邮件至 support@...」"
+
+  must_fix: []
+
+  scores:
+    fact_reliability: 95
+    logic_rigor: 92
+    structural_clarity: 90
+    risk_control: 88
+    ship_readiness: 85
+
+  release_decision: "ship"
+  release_blockers: []
+
+  learning_updates:
+    update_baseline: true
+    update_mnk_cards:
+      - "audit/mnk_cards/zone9_human.md"
+    create_pitfall: false
+    pitfall_summary: ""
+    propose_constraint_upgrade: false
+    constraint_proposal: ""
+
+  next_task_seed:
+    - "ZONE-1 损失厌恶横幅渲染（P0，LR-2）"
+    - "创建 /privacy 页面（P0，LR-9）"
+
+---
+# ═══════════════════════════════════════════════════════════════════
+# 示例：被阻断的审计记录
+# ═══════════════════════════════════════════════════════════════════
+
+audit_output:
+  task_id: "TASK-20260415-003"
+  audited_at: "2026-04-15T14:00:00Z"
+  verdict: "block"
+
+  findings:
+    - id: "AUD-001"
+      severity: "P0"
+      category: "compliance"
+      rule_ref: "IP-8"
+      location: "src/components/homepage/HumanHelpZone.tsx:23"
+      problem: "LINE 联系方式被硬编码在组件文件中"
+      evidence: "const lineUrl = 'https://line.me/R/ti/p/@xxxxxxx'"
+      required_fix: "改为 process.env.NEXT_PUBLIC_LINE_URL，删除硬编码值"
+
+    - id: "AUD-002"
+      severity: "P0"
+      category: "compliance"
+      rule_ref: "IP-7"
+      location: "build output"
+      problem: "TypeScript 编译有 2 个错误"
+      evidence: "src/components/homepage/HumanHelpZone.tsx:45 - error TS2345"
+      required_fix: "修复 TypeScript 类型错误后重新提交"
+
+  must_fix:
+    - "删除 LINE URL 硬编码，改用环境变量 NEXT_PUBLIC_LINE_URL"
+    - "修复 TypeScript 类型错误"
+
+  scores:
+    fact_reliability: 85
+    logic_rigor: 80
+    structural_clarity: 75
+    risk_control: 30
+    ship_readiness: 10
+
+  release_decision: "do_not_ship"
+  release_blockers:
+    - "IP-8 违规：LINE URL 硬编码"
+    - "IP-7 违规：TypeScript 编译错误"
+
+  learning_updates:
+    update_baseline: false
+    update_mnk_cards: []
+    create_pitfall: true
+    pitfall_summary: "联系方式硬编码违反 IP-8，根本原因是环境变量未提前配置就开始写组件"
+    propose_constraint_upgrade: false
+    constraint_proposal: ""
+
+  next_task_seed:
+    - "先配置 .env.local 中的 NEXT_PUBLIC_LINE_URL 再执行组件修改"

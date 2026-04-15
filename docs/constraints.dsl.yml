@@ -1,0 +1,343 @@
+# JTG 约束 DSL — 机器主读源
+# 版本：2.0 · 2026-04-15
+# 用途：Claude / Claude Code / 审计脚本 读取此文件判断约束边界
+# 人类可读版：JTG_协作规则_V2.md
+
+protocol:
+  name: JTG-COLLAB-DSL
+  version: "2.0"
+  authority_order:
+    - immutable_principles
+    - locked_requirements
+    - iterable_parts
+    - task_instruction
+    - style_preference
+  default_policy: "任何未被显式标记为可迭代的内容，默认不可改"
+
+# ─── 固定原则（IP）永不触碰 ────────────────────────────────────────
+immutable_principles:
+
+  - id: IP-1
+    title: DB 不变
+    statement: 不修改 DB schema、migration、DB 访问层
+    check:
+      type: path_block
+      paths:
+        - "db/**"
+        - "supabase/migrations/**"
+        - "src/lib/db/**"
+    violation_level: P0
+    on_violation: stop_and_report
+
+  - id: IP-2
+    title: 路由不变
+    statement: 不修改 L6 人工升级路由规则
+    check:
+      type: path_block
+      paths:
+        - "src/app/api/**/route.ts"
+      note: "若任务明确授权且仅限非 L6 路由，可豁免"
+    violation_level: P0
+    on_violation: stop_and_report
+
+  - id: IP-3
+    title: 认证骨架
+    statement: session.ts 保持骨架，不接入真实生产认证
+    check:
+      type: path_block
+      paths:
+        - "**/session.ts"
+        - "src/lib/auth/**"
+    violation_level: P0
+    on_violation: stop_and_report
+
+  - id: IP-4
+    title: 服务端真相源
+    statement: remaining/canSubmit/identityType/riskLevel 唯一来源为服务端，前端不计算
+    check:
+      type: keyword_guard
+      blocked_patterns:
+        - "const remaining ="
+        - "const canSubmit ="
+        - "const identityType ="
+        - "const riskLevel ="
+      scope: "src/components/**"
+    violation_level: P0
+    on_violation: stop_and_report
+
+  - id: IP-5
+    title: 失败可见
+    statement: evidence_write_failed 必须对用户可见，禁止静默
+    check:
+      type: keyword_required
+      pattern: "evidence_write_failed"
+      expectation: visible_error_handling_required
+    violation_level: P0
+    on_violation: stop_and_report
+
+  - id: IP-6
+    title: 测试基线
+    statement: 测试数量不得减少
+    check:
+      type: baseline_compare
+      key: tests_passing
+      comparator: ">="
+      baseline_source: "docs/baselines/latest.json"
+    violation_level: P0
+    on_violation: stop_and_report
+
+  - id: IP-7
+    title: 构建干净
+    statement: 构建通过，src/ TypeScript 错误为 0
+    check:
+      type: multi_check
+      items:
+        - { type: command, command: "npm run build", expect_exit: 0 }
+        - { type: command, command: "npx tsc --noEmit", expect_exit: 0 }
+    violation_level: P0
+    on_violation: stop_and_report
+
+  - id: IP-8
+    title: 禁止硬编码
+    statement: 禁止在组件中硬编码 API Key、密钥、联系方式
+    check:
+      type: regex_block
+      patterns:
+        - "sk-[A-Za-z0-9]{10,}"
+        - "AKIA[0-9A-Z]{16}"
+        - "line\\.me/R/ti/p/"
+        - "wa\\.me/[0-9]"
+      scope: "src/components/**"
+    violation_level: P0
+    on_violation: stop_and_report
+
+  - id: IP-9
+    title: 禁止夸大文案
+    statement: 禁止使用不可证实的绝对化表述
+    check:
+      type: blocked_terms
+      scope:
+        - "src/**"
+        - "docs/**"
+      blocked_list:
+        - "100%可信"
+        - "官方认证平台"
+        - "政府合作"
+        - "区块链保护"
+        - "绝对安全"
+        - "零风险"
+        - "完全透明"
+        - "完全真实"
+        - "AI可以100%识别"
+        - "全自动分析无需核对"
+        - "最后机会"
+        - "限时优惠"
+        - "仅剩X次立即升级"
+    violation_level: P0
+    on_violation: stop_and_report
+
+  - id: IP-10
+    title: V5 禁止词永效
+    statement: V5 规范中所有禁止文案永久有效
+    check:
+      type: reference
+      ref: "JTG_首页前端设计规范_V5_行为经济学驱动版.md"
+      section: "禁止文案"
+    violation_level: P0
+    on_violation: stop_and_report
+
+# ─── 固定需求（LR）需明确授权才能变更 ─────────────────────────────
+locked_requirements:
+
+  - id: LR-1
+    statement: 首页三入口布局：1个主CTA绿卡 + 2个次级边框卡
+    check:
+      type: visual_contract
+      target: "HeroZone"
+      components: ["primary_cta", "secondary_left", "secondary_right"]
+
+  - id: LR-2
+    statement: ZONE 1 损失厌恶横幅必须渲染；引用数据需标注来源、年份、统计口径
+    check:
+      type: content_contract
+      target: "LossAversionBanner"
+      required_fields: ["source_label", "year", "metric_definition"]
+
+  - id: LR-3
+    statement: 三步引导条默认折叠，点击主CTA后展开
+    check:
+      type: interaction_contract
+      target: "ThreeStepGuide"
+      default_state: "collapsed"
+      trigger: "primary_cta_click"
+
+  - id: LR-4
+    statement: FAQ Tab 名称固定
+    check:
+      type: exact_match
+      values: ["租房准备", "申请与签约", "入住后问题", "生活"]
+
+  - id: LR-5
+    statement: 外部平台链接标注「外部链接 ↗」，新标签页打开
+    check:
+      type: link_policy
+      external_label: "外部链接 ↗"
+      new_tab_required: true
+      rel_required: "noopener noreferrer"
+
+  - id: LR-6
+    statement: 联系渠道通过环境变量注入，禁止硬编码
+    check:
+      type: env_binding_required
+      vars:
+        - "NEXT_PUBLIC_LINE_URL"
+        - "NEXT_PUBLIC_WECHAT_URL"
+        - "NEXT_PUBLIC_EMAIL_URL"
+        - "NEXT_PUBLIC_PHONE_NUMBER"
+
+  - id: LR-7
+    statement: 确认条 inline 出现，禁止 position:fixed
+    check:
+      type: css_block
+      pattern: "position.*fixed"
+      scope: "src/components/homepage/HumanHelpZone.tsx"
+
+  - id: LR-8
+    statement: Path A（在线联系）和 Path B（电话）视觉明确区分
+    check:
+      type: structure_contract
+      target: "HumanHelpZone"
+      required_sections: ["path_a_online", "path_b_phone"]
+
+  - id: LR-9
+    statement: 页脚 4 个路由有效（返回 200）
+    check:
+      type: route_check
+      routes:
+        - "/zh-Hans/privacy"
+        - "/zh-Hans/terms"
+        - "/zh-Hans/verify-evidence"
+        - "/zh-Hans/report"
+      expected_status: 200
+
+  - id: LR-10
+    statement: 所有交互元素 min-height 不低于 44px
+    check:
+      type: accessibility_contract
+      property: "minHeight"
+      minimum: 44
+      unit: "px"
+
+# ─── 可迭代部分（IT）可主动优化 ────────────────────────────────────
+iterable_parts:
+
+  - id: IT-1
+    statement: 组件内部样式实现方式
+    constraint: "不改变用户可见行为"
+
+  - id: IT-2
+    statement: i18n 键值具体措辞
+    constraint: "不违反 IP-9 / IP-10"
+
+  - id: IT-3
+    statement: 组件拆分粒度与目录组织
+    constraint: "不改变接口契约"
+
+  - id: IT-4
+    statement: analytics track() props 细节
+    constraint: "不减少事件数量"
+
+  - id: IT-5
+    statement: 错误状态与空状态 UI 细节
+    constraint: "不隐藏错误信息"
+
+  - id: IT-6
+    statement: 平台卡片视觉布局与间距
+    constraint: "不改链接行为（LR-5）"
+
+  - id: IT-7
+    statement: FAQ 搜索过滤算法实现
+    constraint: "不改 Tab 名称（LR-4）"
+
+  - id: IT-8
+    statement: 验收脚本具体检测逻辑
+    constraint: "不降低检测严格度"
+
+# ─── Claude Code 专属规则（CC）────────────────────────────────────
+code_rules:
+
+  - id: CC-1
+    statement: 每个任务必须先跑证据门，GATE OPEN 才能继续
+
+  - id: CC-2
+    statement: 每个任务有且仅有一个完成信号（脚本可验证）
+
+  - id: CC-3
+    statement: 修改已有文件前必须先输出影响文件清单
+
+  - id: CC-4
+    statement: 单任务影响文件不超过 3 个；超过则拆分
+
+  - id: CC-5
+    statement: 同一任务不得同时修改 IP 层和 IT 层内容
+
+  - id: CC-6
+    statement: 任务结束必须运行验证脚本，不允许跳过
+
+  - id: CC-7
+    statement: 验证失败必须自动生成 pitfall 记录
+
+  - id: CC-8
+    statement: 发现待确认项必须阻断执行并输出选项
+
+# ─── 冲突处理 ───────────────────────────────────────────────────────
+conflict_resolution:
+  priority:
+    - immutable_principles
+    - locked_requirements
+    - iterable_parts
+    - task_instruction
+  rules:
+    ip_vs_lr: "prefer IP"
+    lr_vs_it: "prefer LR"
+    task_vs_any_higher: "block task"
+    uncertain: "default to immutable, ask first"
+  escalation:
+    change_ip: "升级固定原则"
+    change_lr: "变更固定需求"
+    optimize_it: "优化可迭代部分"
+
+# ─── 待确认自动触发条件 ─────────────────────────────────────────────
+pending_decision_triggers:
+  - affects_immutable_or_locked
+  - lacks_completion_signal
+  - exceeds_file_limit
+  - introduces_new_dependency
+  - changes_user_facing_claims_without_evidence
+  - changes_business_logic_not_just_implementation
+
+on_pending_decision:
+  action: block_execution
+  required_output:
+    - ambiguity_description
+    - options_list
+    - recommended_default
+    - wait_for_confirmation
+
+# ─── 证据标准 ────────────────────────────────────────────────────────
+evidence_standard:
+  valid_must_be:
+    - reproducible
+    - independently_verifiable
+    - locatable
+  accepted_forms:
+    - grep_result
+    - file_path_with_snippet
+    - command_output
+    - route_status_code
+    - test_report
+  invalid_forms:
+    - subjective_assumption
+    - memory_only
+    - "应该在这里"
+    - "上次似乎修过"
