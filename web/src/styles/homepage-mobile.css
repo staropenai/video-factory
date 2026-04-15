@@ -1,0 +1,175 @@
+/*
+ * styles/homepage-mobile.css
+ *
+ * Mobile-first overrides for the JTG homepage.
+ * All rules here implement spec §3.8 hard requirements:
+ *
+ *   - 375px width: no horizontal overflow
+ *   - Touch targets ≥ 44px
+ *   - Entry cards reflow on small screens
+ *   - Thai font adjustment (line-height: 1.8)
+ *
+ * Import in the homepage layout or global CSS:
+ *   @import "@/styles/homepage-mobile.css";
+ */
+
+/* ── Base mobile constraints ──────────────────────────────────────────────── */
+
+@media (max-width: 479px) {
+  /* Entry cards: stack to 2-column grid on small phones */
+  .jtg-entry-cards {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  /* Primary card spans full width on mobile */
+  .jtg-entry-cards > :first-child {
+    grid-column: 1 / -1;
+  }
+
+  /* External platform grid: 2 columns on mobile */
+  .jtg-platform-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* FAQ tabs: horizontal scroll on very small screens */
+  [role="tablist"] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  [role="tablist"]::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Human help channels: 2-column grid on small screens */
+  .jtg-channel-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+/* ── Touch target floor — spec §3.8 ──────────────────────────────────────── */
+/*
+ * Any interactive element in the homepage must be at least 44×44px.
+ * This applies to buttons, links used as buttons, and tab items.
+ */
+.jtg-touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+button,
+[role="tab"],
+a[role="button"],
+.jtg-channel-btn {
+  min-height: 44px;
+}
+
+/* ── AI result folding — spec §3.8 ───────────────────────────────────────── */
+/*
+ * Long AI results should fold on mobile.
+ * The result page (not this file's scope) should apply:
+ *
+ *   .jtg-ai-result-body {
+ *     max-height: 3lh;   // 3 lines default
+ *     overflow: hidden;
+ *   }
+ *   .jtg-ai-result-body.expanded {
+ *     max-height: none;
+ *   }
+ *
+ * Kept here as a reminder for the result page implementation.
+ */
+
+/* ── Thai locale — line-height adjustment ────────────────────────────────── */
+:lang(th) {
+  font-family: "Sarabun", "Noto Sans Thai", sans-serif;
+  line-height: 1.8;
+}
+
+:lang(th) h1,
+:lang(th) h2,
+:lang(th) h3 {
+  line-height: 1.6;
+}
+
+/* ── No horizontal overflow — spec §3.8 hard requirement ─────────────────── */
+/*
+ * The root container must never create horizontal scrollbar on a 375px viewport.
+ * This rule ensures all children are clamped.
+ */
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.jtg-homepage-root {
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* ── Copy button (spec §3.8 — "copy" buttons need clear tap area) ─────────── */
+.jtg-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--color-text-primary);
+  gap: 6px;
+  transition: background 0.15s;
+}
+
+.jtg-copy-btn:active {
+  background: var(--color-background-secondary);
+}
+
+/* ── V4 Streaming UI — stable layout, cursor, pulse ─────────────────────── */
+
+/* Stable container — prevents height jumping as tokens arrive (V4 spec) */
+.ai-response-container {
+  min-height: 120px;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  transition: min-height 0.15s ease;
+}
+
+/* Blinking cursor during streaming */
+.streaming-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  background: currentColor;
+  vertical-align: text-bottom;
+  margin-left: 1px;
+  animation: streaming-blink 1s step-end infinite;
+}
+
+@keyframes streaming-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Thinking pulse animation */
+.thinking-indicator {
+  animation: thinking-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes thinking-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.9; }
+}
+
+/* V4: Human help sticky during streaming — always visible */
+.jtg-human-help-sticky {
+  position: sticky;
+  bottom: env(safe-area-inset-bottom, 0px);
+  z-index: 10;
+  background: var(--color-background-primary);
+}

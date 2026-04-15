@@ -1,0 +1,55 @@
+[
+  {
+    "name": "empty-retrieval-out-of-scope",
+    "queryText": "What services do you offer?",
+    "taskState": {},
+    "clarificationRounds": 0,
+    "expected": {
+      "answerMode": "official_only",
+      "knowledgeFound": false
+    }
+  },
+  {
+    "name": "high-risk-legal-query",
+    "queryText": "I need legal advice about a dispute",
+    "taskState": {},
+    "clarificationRounds": 0,
+    "expected": {
+      "answerMode": "handoff",
+      "shouldEscalate": true,
+      "selectedRuleKeys": ["high_risk_gate"]
+    }
+  },
+  {
+    "name": "requires-human-flag",
+    "queryText": "Can you help me?",
+    "taskState": { "requiresHuman": true },
+    "clarificationRounds": 0,
+    "expected": {
+      "answerMode": "handoff",
+      "shouldEscalate": true,
+      "selectedRuleKeys": ["escalation_gate"]
+    }
+  },
+  {
+    "name": "two-rounds-handoff",
+    "queryText": "Tell me more",
+    "taskState": {},
+    "clarificationRounds": 2,
+    "expected": {
+      "answerMode": "handoff",
+      "shouldEscalate": true,
+      "selectedRuleKeys": ["low_confidence_gate"]
+    }
+  },
+  {
+    "name": "official-government-query",
+    "queryText": "What are the government regulatory requirements?",
+    "taskState": {},
+    "clarificationRounds": 0,
+    "expected": {
+      "answerMode": "official_only",
+      "selectedRuleKeys": ["official_only_gate"]
+    }
+  }
+]

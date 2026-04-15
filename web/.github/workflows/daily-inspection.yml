@@ -1,0 +1,97 @@
+# .github/workflows/daily-inspection.yml
+# ⚠️ 模板 — 需在 GitHub Settings 配置 secrets 后才能实际运行
+name: Daily Inspection
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: "web/package-lock.json"
+      - run: npm ci
+        working-directory: web
+      - name: TypeScript check
+        run: npx tsc --noEmit
+        working-directory: web
+        id: typecheck
+        continue-on-error: true
+      - name: Tests
+        run: npx jest --ci --passWithNoTests --no-coverage
+        working-directory: web
+        id: tests
+      - name: Build
+        run: npm run build
+        working-directory: web
+        id: build
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          JTG_JWT_SECRET: ${{ secrets.JTG_JWT_SECRET }}
+      - name: Secret scan
+        id: secrets
+        run: |
+          FAIL=false
+          # Pattern 1: OpenAI keys
+          if grep -rE 'sk-[a-zA-Z0-9]{20,}' web/src/ --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v '.env.example'; then
+            echo "::error::Possible OpenAI API key in source"
+            FAIL=true
+          fi
+          # Pattern 2: Supabase service role JWT
+          if grep -rE 'eyJ[a-zA-Z0-9_-]{150,}' web/src/ --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v '.env.example'; then
+            echo "::error::Possible Supabase service role key in source"
+            FAIL=true
+          fi
+          # Pattern 3: Hardcoded DATABASE_URL
+          if grep -rn 'DATABASE_URL\s*=\s*"[^"]*://' web/src/ --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v '.env.example'; then
+            echo "::error::Hardcoded DATABASE_URL in source"
+            FAIL=true
+          fi
+          $FAIL && exit 1 || echo "Secret scan passed"
+      - name: Patent parameter leak scan
+        id: patent
+        run: |
+          LEAK=$(grep -rE '0\.77|TIER_SHORTCUT_MIN_SCORE' web/docs/ web/audit/ web/*.md 2>/dev/null \
+            | grep -v 'REDACTED\|见源码\|internal\|source code\|self_audit\|self_verify' || true)
+          if [ -n "$LEAK" ]; then
+            echo "::error::Patent-sensitive parameter exposed in documentation"
+            echo "$LEAK"
+            exit 1
+          fi
+          echo "Patent scan passed"
+      - name: Dependency audit
+        id: depaudit
+        continue-on-error: true
+        run: npm audit --audit-level=high
+        working-directory: web
+      - name: SAST basic patterns
+        id: sast
+        continue-on-error: true
+        run: |
+          FOUND=$(grep -rn 'eval(\|innerHTML\s*=\|dangerouslySetInnerHTML' web/src/ \
+            --include="*.ts" --include="*.tsx" 2>/dev/null \
+            | grep -v '.test.' | grep -v 'node_modules' || true)
+          if [ -n "$FOUND" ]; then
+            echo "::warning::Potential XSS patterns found:"
+            echo "$FOUND"
+          else
+            echo "XSS scan clean"
+          fi
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Daily Inspection $(date +%Y-%m-%d)" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| TypeScript | ${{ steps.typecheck.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Tests | ${{ steps.tests.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build | ${{ steps.build.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Secret Scan | ${{ steps.secrets.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Patent Scan | ${{ steps.patent.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dep Audit | ${{ steps.depaudit.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| SAST | ${{ steps.sast.outcome }} |" >> $GITHUB_STEP_SUMMARY
