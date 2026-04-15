@@ -1,0 +1,39 @@
+# .vercelignore — Exclude files from Vercel deployment upload.
+# Reduces upload size and prevents accidental information exposure.
+
+# Test & coverage output
+coverage/
+__tests__/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+jest.config.*
+
+# Documentation & internal files
+docs/
+audit/
+.internal/
+*.md
+!README.md
+
+# Development tooling
+scripts/
+.vscode/
+.idea/
+.husky/
+
+# Source maps (should never be in build, but defense-in-depth)
+*.map
+
+# Debug & temp
+*.log
+tmp/
+temp/
+.data/
+
+# Git metadata
+.git/
+
+# Patent internals
+.patent-internal/
