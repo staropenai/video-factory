@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // SECURITY: Explicitly disable client-side source maps in production.
+  // Default is false, but we pin it to prevent accidental enablement.
+  productionBrowserSourceMaps: false,
   async headers() {
     return [
       {
