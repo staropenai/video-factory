@@ -54,6 +54,7 @@ import { extractClientIp } from "@/lib/security/rate-limit";
 import { recordRouterLatency, recordTTFT, recordTierHit } from "@/lib/monitoring/ttft";
 import { createEvidenceRecord, logEvidenceRecord } from "@/lib/patent/evidence-chain-logger";
 import { captureError } from "@/lib/monitoring/sentry";
+import { classifyAnswer, validateAnswerMeta } from "@/lib/answer-reliability";
 
 import type { AnswerMode as RuleAnswerMode, RiskLevel } from "@/lib/router/types";
 import type {
@@ -306,6 +307,14 @@ export async function POST(req: NextRequest) {
           }
         });
 
+        const fastMeta = classifyAnswer({
+          decision: fastRule,
+          retrieval: baselineRetrieval.summary,
+          llmCalled: false,
+          shortcutTaken: true,
+        });
+        const fastMetaValidated = validateAnswerMeta(fastMeta);
+
         return ok({
           content: answer,
           tier,
@@ -314,6 +323,7 @@ export async function POST(req: NextRequest) {
           language: fastLang,
           mode: "normal" as ApiAnswerMode,
           sources,
+          answerMeta: fastMetaValidated.valid ? fastMeta : fastMetaValidated.corrected!,
           debug: { requestId, latencyMs: fastLatency, fastPath: true },
         });
       }
@@ -422,6 +432,14 @@ export async function POST(req: NextRequest) {
         }
       });
 
+      const scMeta = classifyAnswer({
+        decision,
+        retrieval: retrieval.summary,
+        llmCalled: false,
+        shortcutTaken: true,
+      });
+      const scMetaValidated = validateAnswerMeta(scMeta);
+
       return ok({
         content: answer,
         tier: shortcut === "tier_a_shortcut" ? "A" : "B",
@@ -429,6 +447,7 @@ export async function POST(req: NextRequest) {
         language: detectedLanguage,
         mode: apiMode,
         sources,
+        answerMeta: scMetaValidated.valid ? scMeta : scMetaValidated.corrected!,
         debug: { requestId, latencyMs: Date.now() - startedAt },
       });
     }
@@ -468,6 +487,14 @@ export async function POST(req: NextRequest) {
         }
       });
 
+      const handoffMeta = classifyAnswer({
+        decision,
+        retrieval: retrieval.summary,
+        llmCalled: false,
+        shortcutTaken: false,
+      });
+      const handoffMetaValidated = validateAnswerMeta(handoffMeta);
+
       return ok({
         content: null,
         tier: "L6",
@@ -476,6 +503,7 @@ export async function POST(req: NextRequest) {
         mode: apiMode,
         handoff: true,
         sources,
+        answerMeta: handoffMetaValidated.valid ? handoffMeta : handoffMetaValidated.corrected!,
         debug: { requestId, latencyMs: Date.now() - startedAt },
       });
     }
@@ -525,6 +553,14 @@ export async function POST(req: NextRequest) {
             logError("stream_tier_c_writeback_error", e);
           }
 
+          const tierCMeta = classifyAnswer({
+            decision,
+            retrieval: retrieval.summary,
+            llmCalled: true,
+            shortcutTaken: false,
+          });
+          const tierCMetaValidated = validateAnswerMeta(tierCMeta);
+
           controller.enqueue(
             encoder.encode(
               sseEvent({
@@ -533,6 +569,7 @@ export async function POST(req: NextRequest) {
                 language: detectedLanguage,
                 mode: apiMode,
                 sources,
+                answerMeta: tierCMetaValidated.valid ? tierCMeta : tierCMetaValidated.corrected!,
                 debug: { requestId, latencyMs: tierCLatency },
               })
             )

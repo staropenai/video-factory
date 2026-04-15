@@ -57,6 +57,9 @@ import { optimizeRoute, featuresFromRouterContext } from '@/lib/routing/optimize
 import { validateOutput } from '@/lib/security/output-validator'
 import { scoreQuestionQuality } from '@/lib/ai/question-quality'
 import { resolveIdentity } from '@/lib/auth/identity'
+import { classifyAnswer, validateAnswerMeta, detectFalseClaims } from '@/lib/answer-reliability'
+import { buildAnswerAuditRecord, emitAnswerAudit } from '@/lib/audit/answer-audit'
+import { validateAnswerQuality } from '@/lib/validation/answer-quality'
 import { devLogJson } from '@/lib/utils/dev-log'
 import { validateMessageLength, enforceQuota, enforceRateLimit } from '@/app/api/router/quota-gate'
 import { extractClientIp } from '@/lib/security/rate-limit'
@@ -667,6 +670,48 @@ export async function POST(req: NextRequest) {
     }
 
     // ----------------------------------------------------------------
+    // 6.9) Answer reliability classification (TASK 4-7).
+    //       Derives answer_type, verification, evidence, escalation.
+    // ----------------------------------------------------------------
+    const answerMeta = classifyAnswer({
+      decision,
+      retrieval: retrieval.summary,
+      llmCalled: pathTrace.llmCalled,
+      shortcutTaken: canShortcut,
+    })
+    const metaValidation = validateAnswerMeta(answerMeta)
+    const finalAnswerMeta = metaValidation.valid ? answerMeta : metaValidation.corrected!
+
+    // False-claims check on LLM-generated text
+    const falseClaims = detectFalseClaims(rendered.answer, finalAnswerMeta)
+    if (falseClaims.hasCertaintyLanguage) {
+      devLogJson({
+        event: 'false_claims_warning',
+        requestId,
+        answer_type: finalAnswerMeta.answer_type,
+        matchedPatterns: falseClaims.matchedPatterns,
+      })
+    }
+
+    // Answer quality validation (TASK 14)
+    const qualityCheck = validateAnswerQuality(rendered.answer, finalAnswerMeta, detectedLanguage)
+
+    // Emit structured answer audit record (TASK 12)
+    try {
+      emitAnswerAudit(buildAnswerAuditRecord({
+        requestId,
+        sessionId,
+        tier: canShortcut ? (shortcut === 'tier_a_shortcut' ? 'A' : 'B') : (decision.shouldEscalate ? 'L6' : 'C'),
+        answerMeta: finalAnswerMeta,
+        falseClaims,
+        qualityIssues: qualityCheck.issues,
+        latencyMs: Date.now() - startedAt,
+      }))
+    } catch (e) {
+      logError('answer_audit_error', e)
+    }
+
+    // ----------------------------------------------------------------
     // 7) Response. New top-level fields match design doc §5.2; legacy
     //    fields (`decision`, `knowledge`, `aiAnswer`) are kept so the
     //    existing frontend keeps rendering without a redeploy.
@@ -703,6 +748,8 @@ export async function POST(req: NextRequest) {
       // the contract should render from `payload.blocks` directly; the
       // legacy `answer` string is still returned for back-compat.
       payload: validatedPayload,
+      // TASK 4-7 — answer reliability metadata
+      answerMeta: finalAnswerMeta,
       // Spec §12 — minimal path trace per query.
       pathTrace,
       debug: {
