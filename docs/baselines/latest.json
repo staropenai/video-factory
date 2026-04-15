@@ -1,0 +1,10 @@
+{
+  "captured_at": "2026-04-15",
+  "task_id": "INIT",
+  "commit_hash": "e72154a",
+  "branch": "claude/recursing-tu",
+  "tests_passing": 0,
+  "ts_errors": 0,
+  "verification_result": "init",
+  "note": "初始基线，手动创建"
+}

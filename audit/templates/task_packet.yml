@@ -1,0 +1,163 @@
+# JTG 任务包模板（task_packet.yml）
+# 用途：每次给 Claude Code 发任务时，用此格式
+# 机器可解析，同时人类可读
+# 复制此文件，填写后发给 Code
+
+task_packet:
+  # ─── 基本信息 ──────────────────────────────────────────────────────
+  task_id: "TASK-YYYYMMDD-001"          # 格式：TASK-日期-序号
+  title: "【在这里写任务标题】"
+  created_at: "YYYY-MM-DD"
+  instruction_mode: "implement"          # implement | optimize | discuss_only | as_is
+
+  # ─── 执行范围 ──────────────────────────────────────────────────────
+  scope:
+    files_allowed:                       # 允许修改的文件（精确路径）
+      - "src/components/homepage/XXX.tsx"
+      - "src/lib/i18n/homepage.ts"
+    files_forbidden:                     # 明确禁止触碰的文件
+      - "src/app/api/**"
+      - "db/**"
+      - "**/session.ts"
+    max_files: 3                         # 单任务最多影响文件数，超过则拆分
+
+  # ─── 约束引用 ──────────────────────────────────────────────────────
+  rule_scope:
+    immutable_involved:                  # 本任务涉及的 IP 规则
+      - "IP-X"
+    locked_involved:                     # 本任务涉及的 LR 规则
+      - "LR-X"
+    iterable_involved:                   # 本任务优化的 IT 部分
+      - "IT-X"
+    must_not_violate:                    # 明确不能触碰的规则（补充）
+      - "IP-8"                           # 禁止硬编码（始终适用）
+      - "IP-9"                           # 禁止夸大文案（始终适用）
+
+  # ─── 证据门 ────────────────────────────────────────────────────────
+  evidence_gate:
+    required: true
+    pre_check_commands:                  # 执行前必须跑的检查命令
+      - "grep -rn 'XXX' src/components/ --include='*.tsx'"
+      - "ls src/app/\\[locale\\]/XXX/page.tsx 2>/dev/null || echo '❌ 不存在'"
+    expected_findings: "【描述期望看到的证据】"
+
+  # ─── 完成信号 ──────────────────────────────────────────────────────
+  completion_signal:
+    type: "command"                      # command | grep | route | snapshot
+    value: "bash scripts/verify_v5_homepage.sh"
+    expect: "✅ VERIFIED"
+    fallback_check:                      # 脚本不通过时的备用验证
+      - "npx tsc --noEmit 2>&1 | grep 'error TS' | wc -l  # 期望：0"
+
+  # ─── 交付物 ────────────────────────────────────────────────────────
+  deliverables:
+    - code_change
+    - verification_output
+    - audit_record                       # 结构化审计结果
+    - pitfall_record_if_failed           # 失败时强制写入
+
+  # ─── 失败处理 ──────────────────────────────────────────────────────
+  on_failure:
+    - create_pitfall_record              # 自动追加到 docs/pitfall_registry.md
+    - mark_task_failed
+    - do_not_proceed_to_next_task        # 失败不继续，先修复
+
+  # ─── 任务完成四个必要条件 ───────────────────────────────────────────
+  done_when:
+    - evidence_gate_open: true
+    - completion_signal_passed: true
+    - audit_p0_count: 0
+    - learning_asset_updated: true       # baseline/MNK 已按需更新
+
+---
+# ═══════════════════════════════════════════════════════════════════
+# 示例 1：接通联系人工帮助区
+# ═══════════════════════════════════════════════════════════════════
+
+task_packet:
+  task_id: "TASK-20260415-001"
+  title: "接通 ZONE-9 联系人工帮助区"
+  created_at: "2026-04-15"
+  instruction_mode: "implement"
+
+  scope:
+    files_allowed:
+      - "src/components/homepage/HumanHelpZone.tsx"
+      - "src/lib/i18n/homepage.ts"
+    files_forbidden:
+      - "src/app/api/**"
+      - "db/**"
+    max_files: 2
+
+  rule_scope:
+    immutable_involved: ["IP-8"]
+    locked_involved: ["LR-6", "LR-7", "LR-8"]
+    iterable_involved: ["IT-5"]
+    must_not_violate: ["IP-8", "IP-9"]
+
+  evidence_gate:
+    required: true
+    pre_check_commands:
+      - "ls src/components/homepage/HumanHelpZone.tsx"
+      - "grep -n 'NEXT_PUBLIC_LINE_URL' src/components/homepage/HumanHelpZone.tsx || echo '❌ 未使用环境变量'"
+      - "grep -rn 'line\\.me/R' src/components/ --include='*.tsx' | wc -l  # 期望：0（无硬编码）"
+    expected_findings: "组件存在，当前联系方式通过硬编码或未配置"
+
+  completion_signal:
+    type: "command"
+    value: "bash scripts/verify_v5_homepage.sh"
+    expect: "✅ VERIFIED"
+
+  deliverables:
+    - code_change
+    - verification_output
+    - audit_record
+
+  on_failure:
+    - create_pitfall_record
+    - mark_task_failed
+
+---
+# ═══════════════════════════════════════════════════════════════════
+# 示例 2：创建 privacy 页面（P0 修复）
+# ═══════════════════════════════════════════════════════════════════
+
+task_packet:
+  task_id: "TASK-20260415-002"
+  title: "创建隐私政策页面（/[locale]/privacy）"
+  created_at: "2026-04-15"
+  instruction_mode: "implement"
+
+  scope:
+    files_allowed:
+      - "src/app/[locale]/privacy/page.tsx"  # 新建
+    files_forbidden:
+      - "src/app/api/**"
+      - "db/**"
+    max_files: 1
+
+  rule_scope:
+    immutable_involved: []
+    locked_involved: ["LR-9"]
+    iterable_involved: ["IT-2"]
+    must_not_violate: ["IP-7", "IP-9"]
+
+  evidence_gate:
+    required: true
+    pre_check_commands:
+      - "ls src/app/\\[locale\\]/privacy/page.tsx 2>/dev/null || echo '❌ 文件不存在'"
+      - "curl -s -o /dev/null -w '%{http_code}' https://staropenai.com/zh-Hans/privacy  # 期望：404（待修）"
+    expected_findings: "文件不存在，路由返回 404"
+
+  completion_signal:
+    type: "command"
+    value: "ls src/app/\\[locale\\]/privacy/page.tsx && npx tsc --noEmit 2>&1 | grep 'error TS' | wc -l"
+    expect: "文件存在且 TS 错误为 0"
+
+  deliverables:
+    - code_change
+    - verification_output
+
+  on_failure:
+    - create_pitfall_record
+    - mark_task_failed
