@@ -12,7 +12,7 @@ jest.config.*
 
 # Documentation & internal files
 docs/
-audit/
+/audit/
 .internal/
 *.md
 !README.md
