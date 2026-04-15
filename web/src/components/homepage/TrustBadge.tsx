@@ -22,7 +22,9 @@ export type TrustStatus = "verified" | "partial" | "risk" | "unknown" | "pending
 interface TrustBadgeProps {
   status: TrustStatus;
   label: string;
-  /** If provided, renders as an interactive button and fires trust_promise_click */
+  /** If provided, renders as a link */
+  href?: string;
+  /** If provided, renders as an interactive element and fires trust_promise_click */
   onClick?: () => void;
   /** Promise index (1–5) for analytics — only used when onClick is provided */
   promiseIndex?: number;
@@ -43,6 +45,7 @@ export const STATUS_CONFIG: Record<
 export function TrustBadge({
   status,
   label,
+  href,
   onClick,
   promiseIndex,
   locale = "zh-Hans",
@@ -85,6 +88,19 @@ export function TrustBadge({
       </span>
     </>
   );
+
+  if (href) {
+    return (
+      <a
+        href={href}
+        onClick={handleClick}
+        style={{ ...style, textDecoration: "none" }}
+        aria-label={label}
+      >
+        {content}
+      </a>
+    );
+  }
 
   if (onClick) {
     return (

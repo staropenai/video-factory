@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useRef } from "react";
-import { platforms, PLATFORM_GUIDE } from "@/lib/platforms/japan-property-platforms";
+import { platforms } from "@/lib/platforms/japan-property-platforms";
 import { track, Events } from "@/lib/analytics/events";
 import type { HomepageCopy } from "@/lib/i18n/homepage";
 
@@ -35,8 +35,7 @@ export function ThreeStepGuide({ isOpen, locale, copy }: Props) {
 
   if (!isOpen) return null;
 
-  const guideText =
-    PLATFORM_GUIDE[locale] ?? PLATFORM_GUIDE["zh-Hans"];
+  const guideText = copy.guidePlatformHint;
 
   return (
     <div

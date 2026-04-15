@@ -55,6 +55,8 @@ interface Props {
     | "channelEmail"
     | "channelWhatsApp"
     | "channelPhone"
+    | "humanReplyTime"
+    | "humanFallback"
   >;
   locale: string;
   /** Runtime channel URLs — never hardcoded in this component */
@@ -71,6 +73,8 @@ export function HumanHelpSection({ copy, locale, channels }: Props) {
   const [pendingChannel, setPendingChannel] = useState<ChannelConfig | null>(
     null
   );
+
+  const hasAnyChannel = !!(channels.line || channels.wechat || channels.email || channels.whatsapp || channels.phone);
 
   const infoChannels = ([
     { key: "line" as const,      labelKey: "channelLine" as const,      href: channels.line      ?? "#" },
@@ -163,6 +167,33 @@ export function HumanHelpSection({ copy, locale, channels }: Props) {
       >
         {copy.humanDesc}
       </p>
+
+      {/* Reply time hint */}
+      <p
+        style={{
+          fontSize: 11,
+          color: "#0F6E56",
+          padding: "0 16px 10px",
+          margin: 0,
+        }}
+      >
+        {copy.humanReplyTime}
+      </p>
+
+      {/* Fallback: no channels configured */}
+      {!hasAnyChannel && (
+        <p
+          style={{
+            fontSize: 12,
+            color: "var(--color-text-secondary)",
+            padding: "12px 16px 14px",
+            margin: 0,
+            textAlign: "center",
+          }}
+        >
+          {copy.humanFallback}
+        </p>
+      )}
 
       {/* ── Path A: Info-send channels ─────────────────────────────────── */}
       {infoChannels.length > 0 && (

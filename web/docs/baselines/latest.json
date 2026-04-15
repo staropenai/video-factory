@@ -1,9 +1,22 @@
 {
   "captured_at": "2026-04-15",
-  "milestone": "P0 pages all live",
-  "zones_complete": ["ZONE-1"],
-  "routes_live": ["privacy","terms","verify-evidence","report","trust-center"],
+  "milestone": "V5首页全部P0/P1完成",
+  "tasks_complete": [
+    "TASK-20260415-001 ZONE-1 损失厌恶横幅",
+    "TASK-20260415-002 ZONE-9 人工帮助区",
+    "TASK-20260415-003 ZONE-5 FAQ Tab筛选",
+    "TASK-20260415-004A 免责声明去重+配额重置",
+    "TASK-20260415-004B 承诺卡片验证链接+平台卡片",
+    "TASK-20260415-004C 导航信任中心链接",
+    "TASK-20260415-004D 承诺pill可点击+时间戳提示",
+    "TASK-20260415-004E 页脚公司信息+三步引导说明"
+  ],
+  "tests_passing": 496,
   "ts_errors": 0,
-  "vercel_nextjs_version": "16.2.3",
-  "deploy_note": "vercel --prod must run from web/ directory"
+  "build": "pass",
+  "pending_human_action": [
+    "Vercel环境变量：NEXT_PUBLIC_LINE_URL",
+    "Vercel环境变量：NEXT_PUBLIC_COMPANY_NAME"
+  ],
+  "next_iteration": "P2 — Trust Dashboard / 用户测试数据收集"
 }

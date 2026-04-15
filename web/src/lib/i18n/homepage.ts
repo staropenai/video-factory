@@ -33,6 +33,7 @@ export interface HomepageCopy {
 
   // 3-step guide (shown on card1 expand)
   guideTitle:        string;
+  guidePlatformHint: string;   // "① 点击平台看房源 → ② 复制房源网址 → ③ 回来粘贴到分析框"
   step1:             string;
   step2:             string;
   step3:             string;
@@ -83,12 +84,15 @@ export interface HomepageCopy {
   channelEmail:      string;
   channelWhatsApp:   string;
   channelPhone:      string;
+  humanReplyTime:    string;
+  humanFallback:     string;
 
   // External platform area
   externalLabel:     string;   // "External link" marker (spec §3.10)
   externalNote:      string;   // "Opens external site — not affiliated" (spec §3.10)
 
   // Footer
+  footerOperator:    string;   // "运营方：" prefix for env-injected company name
   footerDisclaimer:  string;
   footerPrivacy:     string;
   footerTerms:       string;
@@ -204,6 +208,10 @@ export interface HomepageCopy {
   // ZONE 1: Loss aversion banner
   lossAversionText:      string;
   lossAversionSource:    string;
+  statBannerPercent:     string;
+  statBannerText:        string;
+  statBannerCta:         string;
+  statBannerSource:      string;
 
   // ZONE 4: Analysis timestamp note
   analysisTimestampNote: string;
@@ -257,6 +265,7 @@ const copy: Record<Locale, HomepageCopy> = {
     card3Hint:         "AI 回答 · 中文客服兜底",
 
     guideTitle:        "怎么用「先去看房源」？三步搞定：",
+    guidePlatformHint: "① 点击平台看房源 → ② 复制房源网址 → ③ 回来粘贴到分析框",
     step1:             "点下方平台链接，去 AtHome / SUUMO 看房",
     step2:             "看到喜欢的 → 截图回来上传，或直接粘贴链接",
     step3:             "AI 辅助解读，复杂问题交给中文客服",
@@ -272,7 +281,7 @@ const copy: Record<Locale, HomepageCopy> = {
     aiZoneTitle:       "没找到答案？直接问",
     aiPlaceholder:     "说出你的情况，例如：我是越南人，想在大阪租 1K…",
     aiSendLabel:       "发送",
-    aiDisclaimer:      "分析结果仅供参考，具体以平台页面及人工确认信息为准。",
+    aiDisclaimer:      "AI 解读供参考，关键条款建议人工复核",
     aiQuotaFmt:        "今日剩余 {remaining}/{limit} 次",
     aiQuotaReset:      "每天 0 点重置",
     aiQuotaExhausted:  "今日额度已用完，明日零点重置。如需继续，可联系人工帮助。",
@@ -323,10 +332,13 @@ const copy: Record<Locale, HomepageCopy> = {
     channelEmail:      "邮件",
     channelWhatsApp:   "WhatsApp",
     channelPhone:      "电话",
+    humanReplyTime:    "通常 2 小时内回复",
+    humanFallback:     "联系方式配置中，请稍后",
 
     externalLabel:     "外部链接",
     externalNote:      "将跳转至外部房产平台，与本站无从属关系",
 
+    footerOperator:    "运营方：",
     footerDisclaimer:  "内容为信息辅助，不构成法律意见。具体以官方机构及专业人士意见为准。",
     footerPrivacy:     "隐私政策",
     footerTerms:       "服务条款",
@@ -384,6 +396,10 @@ const copy: Record<Locale, HomepageCopy> = {
     // ZONE 1
     lossAversionText:      "在日本，39.3% 的外国人曾因国籍被拒租（法务省数据）",
     lossAversionSource:    "法务省",
+    statBannerPercent:     "39%",
+    statBannerText:        "外国人曾因国籍被拒租（法务省数据）",
+    statBannerCta:         "查看避坑攻略 →",
+    statBannerSource:      "数据来源：法务省外国人住民調査報告書",
 
     // ZONE 4
     analysisTimestampNote: "本次分析结果将生成时间戳记录，供您后续核验",
@@ -435,6 +451,7 @@ const copy: Record<Locale, HomepageCopy> = {
     card3Hint:         "AI answers · human backup",
 
     guideTitle:        'How to use "Browse listings"? Three steps:',
+    guidePlatformHint: "① Browse listings → ② Copy the URL → ③ Paste it here to analyze",
     step1:             "Click a platform link below to browse AtHome / SUUMO",
     step2:             "Find something you like → screenshot, or paste the link here",
     step3:             "AI helps read the listing; complex questions go to a human agent",
@@ -450,7 +467,7 @@ const copy: Record<Locale, HomepageCopy> = {
     aiZoneTitle:       "Didn't find an answer? Ask directly",
     aiPlaceholder:     "Describe your situation, e.g. I'm Vietnamese looking for a 1K in Osaka…",
     aiSendLabel:       "Send",
-    aiDisclaimer:      "AI analysis is for reference only. Verify details with the listing page or a human agent.",
+    aiDisclaimer:      "AI summary is for reference — verify key clauses with a human agent",
     aiQuotaFmt:        "{remaining}/{limit} uses left today",
     aiQuotaReset:      "Resets at midnight",
     aiQuotaExhausted:  "Daily limit reached. Resets at midnight. Contact a human agent to continue.",
@@ -501,10 +518,13 @@ const copy: Record<Locale, HomepageCopy> = {
     channelEmail:      "Email",
     channelWhatsApp:   "WhatsApp",
     channelPhone:      "Phone",
+    humanReplyTime:    "Usually replies within 2 hours",
+    humanFallback:     "Contact channels are being set up, please check back later",
 
     externalLabel:     "External link",
     externalNote:      "Opens an external property platform. Not affiliated with this site.",
 
+    footerOperator:    "Operated by: ",
     footerDisclaimer:  "Content is for informational purposes only and does not constitute legal advice. Consult official sources and qualified professionals for specific guidance.",
     footerPrivacy:     "Privacy policy",
     footerTerms:       "Terms of service",
@@ -561,6 +581,10 @@ const copy: Record<Locale, HomepageCopy> = {
 
     lossAversionText:      "In Japan, 39.3% of foreign residents have been refused rental due to nationality (MOJ data)",
     lossAversionSource:    "Ministry of Justice",
+    statBannerPercent:     "39%",
+    statBannerText:        "of foreigners refused rental due to nationality (MOJ data)",
+    statBannerCta:         "See tips to avoid pitfalls →",
+    statBannerSource:      "Source: MOJ Foreign Resident Survey Report",
 
     analysisTimestampNote: "This analysis will generate a timestamp record for your future verification",
 
@@ -607,6 +631,7 @@ const copy: Record<Locale, HomepageCopy> = {
     card3Hint:         "AI回答 · 有人サポート",
 
     guideTitle:        "「物件を見てから」の使い方（3ステップ）",
+    guidePlatformHint: "① 物件を探す → ② URLをコピー → ③ ここに貼り付けて分析",
     step1:             "下記のリンクから AtHome / SUUMO を開いて物件を探す",
     step2:             "気になる物件はスクリーンショット、またはURLをコピーして戻る",
     step3:             "AIが主な内容を解析；複雑な質問は担当者が対応",
@@ -622,7 +647,7 @@ const copy: Record<Locale, HomepageCopy> = {
     aiZoneTitle:       "答えが見つからない場合は直接質問",
     aiPlaceholder:     "状況を教えてください。例：大阪で1Kを探しているベトナム人です…",
     aiSendLabel:       "送信",
-    aiDisclaimer:      "AI の分析結果はあくまで参考情報です。詳細は各物件ページや担当者にご確認ください。",
+    aiDisclaimer:      "AI の解読は参考用です。重要な条項は人間の担当者にご確認ください",
     aiQuotaFmt:        "本日残り {remaining}/{limit} 回",
     aiQuotaReset:      "毎日0時リセット",
     aiQuotaExhausted:  "本日の利用回数に達しました。深夜0時にリセットされます。引き続きご相談の場合は担当者へお問い合わせください。",
@@ -673,10 +698,13 @@ const copy: Record<Locale, HomepageCopy> = {
     channelEmail:      "メール",
     channelWhatsApp:   "WhatsApp",
     channelPhone:      "電話",
+    humanReplyTime:    "通常2時間以内に返信",
+    humanFallback:     "連絡先を設定中です。しばらくお待ちください",
 
     externalLabel:     "外部リンク",
     externalNote:      "外部の不動産プラットフォームに移動します。本サイトとの提携関係はありません。",
 
+    footerOperator:    "運営者：",
     footerDisclaimer:  "本コンテンツは情報提供のみを目的としており、法的アドバイスを構成するものではありません。具体的な事項については、公的機関や専門家にご相談ください。",
     footerPrivacy:     "プライバシーポリシー",
     footerTerms:       "利用規約",
@@ -733,6 +761,10 @@ const copy: Record<Locale, HomepageCopy> = {
 
     lossAversionText:      "日本では外国人の39.3%が国籍を理由に賃貸を断られた経験があります（法務省データ）",
     lossAversionSource:    "法務省",
+    statBannerPercent:     "39%",
+    statBannerText:        "の外国人が国籍を理由に賃貸を断られています（法務省データ）",
+    statBannerCta:         "回避ガイドを見る →",
+    statBannerSource:      "出典：法務省外国人住民調査報告書",
 
     analysisTimestampNote: "この分析結果にはタイムスタンプ記録が生成され、今後の検証に利用できます",
 
@@ -783,6 +815,7 @@ const copy: Record<Locale, HomepageCopy> = {
     card3Hint:         "AI 답변 · 상담원 백업",
 
     guideTitle:        "「매물 보기」 사용법 (3단계):",
+    guidePlatformHint: "① 매물 보기 → ② URL 복사 → ③ 여기에 붙여넣어 분석",
     step1:             "아래 링크를 눌러 AtHome / SUUMO에서 매물 확인",
     step2:             "마음에 드는 매물 스크린샷 찍거나 링크 복사해서 돌아오기",
     step3:             "AI가 주요 내용 분석; 복잡한 질문은 상담원이 처리",
@@ -798,7 +831,7 @@ const copy: Record<Locale, HomepageCopy> = {
     aiZoneTitle:       "답을 못 찾으셨나요? 직접 물어보세요",
     aiPlaceholder:     "상황을 설명해 주세요, 예: 오사카에서 1K를 찾는 베트남인입니다…",
     aiSendLabel:       "전송",
-    aiDisclaimer:      "AI 분석 결과는 참고용입니다. 상세 내용은 매물 페이지 또는 상담원에게 확인하세요.",
+    aiDisclaimer:      "AI 해석은 참고용입니다. 주요 조항은 상담원에게 확인하세요",
     aiQuotaFmt:        "오늘 남은 횟수 {remaining}/{limit}",
     aiQuotaReset:      "매일 자정 초기화",
     aiQuotaExhausted:  "오늘 한도에 도달했습니다. 자정에 초기화됩니다. 계속하려면 상담원에게 문의하세요.",
@@ -849,10 +882,13 @@ const copy: Record<Locale, HomepageCopy> = {
     channelEmail:      "이메일",
     channelWhatsApp:   "WhatsApp",
     channelPhone:      "전화",
+    humanReplyTime:    "보통 2시간 이내 답변",
+    humanFallback:     "연락처를 설정 중입니다. 나중에 다시 확인해주세요",
 
     externalLabel:     "외부 링크",
     externalNote:      "외부 부동산 플랫폼으로 이동합니다. 본 사이트와 제휴 관계 없음.",
 
+    footerOperator:    "운영자: ",
     footerDisclaimer:  "본 콘텐츠는 정보 제공 목적이며 법률 조언이 아닙니다. 구체적인 사항은 공공기관 및 전문가에게 확인하세요.",
     footerPrivacy:     "개인정보 처리방침",
     footerTerms:       "이용약관",
@@ -909,6 +945,10 @@ const copy: Record<Locale, HomepageCopy> = {
 
     lossAversionText:      "일본에서 외국인의 39.3%가 국적을 이유로 임대를 거절당한 경험이 있습니다 (법무성 데이터)",
     lossAversionSource:    "법무성",
+    statBannerPercent:     "39%",
+    statBannerText:        "의 외국인이 국적 때문에 임대를 거절당했습니다 (법무성 데이터)",
+    statBannerCta:         "주의사항 가이드 보기 →",
+    statBannerSource:      "출처: 법무성 외국인주민조사보고서",
     analysisTimestampNote: "이 분석 결과에는 향후 검증을 위한 타임스탬프 기록이 생성됩니다",
     viewTrustDashboard:    "신뢰 대시보드 보기",
     trustAction1Label:     "국토교통성 확인 ↗",
@@ -949,6 +989,7 @@ const copy: Record<Locale, HomepageCopy> = {
     card3Hint:         "AI trả lời · Người hỗ trợ dự phòng",
 
     guideTitle:        "Cách dùng \"Xem nhà trước\" (3 bước):",
+    guidePlatformHint: "① Xem nhà → ② Sao chép URL → ③ Dán vào đây để phân tích",
     step1:             "Nhấn link bên dưới để xem nhà trên AtHome / SUUMO",
     step2:             "Thấy nhà ưng ý → chụp màn hình hoặc dán link về đây",
     step3:             "AI hỗ trợ đọc thông tin; câu hỏi phức tạp có người thật giải đáp",
@@ -964,7 +1005,7 @@ const copy: Record<Locale, HomepageCopy> = {
     aiZoneTitle:       "Không tìm thấy câu trả lời? Hỏi trực tiếp",
     aiPlaceholder:     "Mô tả tình huống của bạn, ví dụ: tôi là người Việt muốn thuê 1K ở Osaka…",
     aiSendLabel:       "Gửi",
-    aiDisclaimer:      "Kết quả phân tích chỉ mang tính tham khảo. Vui lòng xác nhận với trang nhà hoặc người hỗ trợ.",
+    aiDisclaimer:      "Giải thích AI chỉ mang tính tham khảo — hãy xác nhận điều khoản quan trọng với nhân viên",
     aiQuotaFmt:        "Còn {remaining}/{limit} lượt hôm nay",
     aiQuotaReset:      "Đặt lại lúc nửa đêm",
     aiQuotaExhausted:  "Đã hết lượt hôm nay. Đặt lại lúc nửa đêm. Liên hệ người hỗ trợ để tiếp tục.",
@@ -1015,10 +1056,13 @@ const copy: Record<Locale, HomepageCopy> = {
     channelEmail:      "Email",
     channelWhatsApp:   "WhatsApp",
     channelPhone:      "Điện thoại",
+    humanReplyTime:    "Thường trả lời trong vòng 2 giờ",
+    humanFallback:     "Đang thiết lập kênh liên hệ, vui lòng quay lại sau",
 
     externalLabel:     "Liên kết ngoài",
     externalNote:      "Chuyển đến nền tảng bất động sản bên ngoài. Không liên kết với trang này.",
 
+    footerOperator:    "Vận hành bởi: ",
     footerDisclaimer:  "Nội dung chỉ mang tính thông tin và không phải tư vấn pháp lý. Tham khảo cơ quan chức năng và chuyên gia cho các vấn đề cụ thể.",
     footerPrivacy:     "Chính sách bảo mật",
     footerTerms:       "Điều khoản dịch vụ",
@@ -1075,6 +1119,10 @@ const copy: Record<Locale, HomepageCopy> = {
 
     lossAversionText:      "Tại Nhật, 39,3% cư dân nước ngoài từng bị từ chối thuê nhà vì quốc tịch (dữ liệu Bộ Tư pháp)",
     lossAversionSource:    "Bộ Tư pháp",
+    statBannerPercent:     "39%",
+    statBannerText:        "cư dân nước ngoài bị từ chối thuê nhà vì quốc tịch (dữ liệu Bộ Tư pháp)",
+    statBannerCta:         "Xem hướng dẫn tránh rủi ro →",
+    statBannerSource:      "Nguồn: Báo cáo khảo sát cư dân nước ngoài, Bộ Tư pháp",
     analysisTimestampNote: "Kết quả phân tích này sẽ tạo bản ghi dấu thời gian để bạn xác minh sau",
     viewTrustDashboard:    "Xem bảng tin cậy",
     trustAction1Label:     "Kiểm tra MLIT ↗",
@@ -1115,6 +1163,7 @@ const copy: Record<Locale, HomepageCopy> = {
     card3Hint:         "AI ตอบ · ทีมงานสำรอง",
 
     guideTitle:        "วิธีใช้ \"ดูห้องก่อน\" (3 ขั้นตอน):",
+    guidePlatformHint: "① ดูห้อง → ② คัดลอก URL → ③ วางที่นี่เพื่อวิเคราะห์",
     step1:             "คลิกลิงก์ด้านล่างเพื่อดูห้องบน AtHome / SUUMO",
     step2:             "เจอห้องที่ชอบ → สกรีนช็อตหรือวางลิงก์กลับมา",
     step3:             "AI ช่วยอ่านข้อมูลหลัก; คำถามซับซ้อนมีทีมงานดูแล",
@@ -1130,7 +1179,7 @@ const copy: Record<Locale, HomepageCopy> = {
     aiZoneTitle:       "ไม่พบคำตอบ? ถามได้เลย",
     aiPlaceholder:     "อธิบายสถานการณ์ เช่น ฉันเป็นคนไทยอยากเช่า 1K ที่โอซาก้า…",
     aiSendLabel:       "ส่ง",
-    aiDisclaimer:      "ผลการวิเคราะห์เพื่ออ้างอิงเท่านั้น กรุณาตรวจสอบกับหน้าประกาศหรือทีมงาน",
+    aiDisclaimer:      "การตีความของ AI เป็นเพียงข้อมูลอ้างอิง — กรุณาตรวจสอบข้อสำคัญกับเจ้าหน้าที่",
     aiQuotaFmt:        "เหลือ {remaining}/{limit} ครั้งวันนี้",
     aiQuotaReset:      "รีเซ็ตเที่ยงคืน",
     aiQuotaExhausted:  "ใช้ครบโควต้าวันนี้แล้ว รีเซ็ตเที่ยงคืน ติดต่อทีมงานเพื่อดำเนินการต่อ",
@@ -1181,10 +1230,13 @@ const copy: Record<Locale, HomepageCopy> = {
     channelEmail:      "อีเมล",
     channelWhatsApp:   "WhatsApp",
     channelPhone:      "โทรศัพท์",
+    humanReplyTime:    "ปกติตอบกลับภายใน 2 ชั่วโมง",
+    humanFallback:     "กำลังตั้งค่าช่องทางติดต่อ กรุณากลับมาภายหลัง",
 
     externalLabel:     "ลิงก์ภายนอก",
     externalNote:      "ไปยังแพลตฟอร์มอสังหาริมทรัพย์ภายนอก ไม่มีความสัมพันธ์กับเว็บไซต์นี้",
 
+    footerOperator:    "ดำเนินการโดย: ",
     footerDisclaimer:  "เนื้อหาเพื่อให้ข้อมูลเท่านั้น ไม่ใช่คำแนะนำทางกฎหมาย ปรึกษาหน่วยงานและผู้เชี่ยวชาญสำหรับกรณีเฉพาะ",
     footerPrivacy:     "นโยบายความเป็นส่วนตัว",
     footerTerms:       "ข้อกำหนดการใช้งาน",
@@ -1241,6 +1293,10 @@ const copy: Record<Locale, HomepageCopy> = {
 
     lossAversionText:      "ในญี่ปุ่น 39.3% ของชาวต่างชาติเคยถูกปฏิเสธการเช่าเนื่องจากสัญชาติ (ข้อมูลกระทรวงยุติธรรม)",
     lossAversionSource:    "กระทรวงยุติธรรม",
+    statBannerPercent:     "39%",
+    statBannerText:        "ของชาวต่างชาติถูกปฏิเสธการเช่าเนื่องจากสัญชาติ (ข้อมูลกระทรวงยุติธรรม)",
+    statBannerCta:         "ดูคำแนะนำหลีกเลี่ยงปัญหา →",
+    statBannerSource:      "แหล่งที่มา: รายงานสำรวจผู้พำนักต่างชาติ กระทรวงยุติธรรม",
     analysisTimestampNote: "ผลการวิเคราะห์นี้จะสร้างบันทึกเวลาประทับเพื่อการตรวจสอบในอนาคต",
     viewTrustDashboard:    "ดูแดชบอร์ดความน่าเชื่อถือ",
     trustAction1Label:     "ตรวจสอบ MLIT ↗",

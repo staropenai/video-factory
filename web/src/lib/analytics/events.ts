@@ -23,6 +23,7 @@ export const Events = {
 
   // FAQ
   FAQ_CLICK:               "faq_click",
+  FAQ_TAB_CLICK:           "faq_tab_click",
 
   // AI zone
   AI_OPEN:                 "ai_open",

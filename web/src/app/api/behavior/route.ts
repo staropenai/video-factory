@@ -11,7 +11,7 @@ import { ok, rateLimited } from "@/lib/utils/api-response";
 
 const ALLOWED_EVENTS = new Set([
   "home_view", "home_dwell", "primary_entry_click", "secondary_entry_click",
-  "faq_click", "ai_open", "upload_screenshot", "paste_listing_url",
+  "faq_click", "faq_tab_click", "ai_open", "upload_screenshot", "paste_listing_url",
   "text_listing_submit", "human_help_click", "contact_confirm_submit",
   "phone_click", "external_platform_click", "login_click", "lang_switch",
   "stat_banner_click", "guide_expand", "ai_stream_complete",

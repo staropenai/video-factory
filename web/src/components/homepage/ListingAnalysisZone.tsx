@@ -27,7 +27,7 @@ type AnalysisCopy = Pick<
   | "analysisDropHint" | "analysisDropFormats"
   | "analysisUrlPlaceholder" | "analysisUrlNote"
   | "analysisTextPlaceholder" | "analysisTextNote"
-  | "analysisSubmit" | "analysisDisclaimer"
+  | "analysisSubmit" | "analysisDisclaimer" | "analysisTimestampNote"
 >;
 
 interface Props {
@@ -59,6 +59,7 @@ const DEFAULTS: AnalysisCopy = {
   analysisTextNote:      "Type as much or as little as you know. AI will try to extract what it can.",
   analysisSubmit:        "Analyse",
   analysisDisclaimer:    "Analysis results are for reference only — verify with the listing page or a human agent.",
+  analysisTimestampNote: "This analysis will generate a timestamp record for your future verification",
 };
 
 type InputMode = "screenshot" | "url" | "text";
@@ -308,6 +309,16 @@ export function ListingAnalysisZone({ locale, copy, onSubmit, disabled }: Props)
           }}
         >
           {L.analysisDisclaimer}
+        </p>
+        <p
+          style={{
+            fontSize: 11,
+            color: "var(--color-text-secondary)",
+            margin: "4px 0 0",
+            lineHeight: 1.5,
+          }}
+        >
+          {L.analysisTimestampNote}
         </p>
       </div>
     </div>

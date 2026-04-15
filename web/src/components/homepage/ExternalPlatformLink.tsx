@@ -23,6 +23,12 @@ interface Props {
   name: string;
   /** Destination URL */
   href: string;
+  /** One-line description */
+  description?: string;
+  /** Show 外国人友好 badge */
+  foreignFriendly?: boolean;
+  /** Show 支持中文 badge */
+  hasChinese?: boolean;
   /** Current locale — included in analytics payload */
   locale: string;
   copy: Pick<HomepageCopy, "externalLabel" | "externalNote">;
@@ -32,6 +38,9 @@ interface Props {
 export function ExternalPlatformLink({
   name,
   href,
+  description,
+  foreignFriendly,
+  hasChinese,
   locale,
   copy,
   className = "",
@@ -71,6 +80,29 @@ export function ExternalPlatformLink({
       >
         {name}
       </span>
+
+      {/* Description */}
+      {description && (
+        <span style={{ fontSize: 11, color: "var(--color-text-secondary)", lineHeight: 1.4 }}>
+          {description}
+        </span>
+      )}
+
+      {/* Badges */}
+      {(foreignFriendly || hasChinese) && (
+        <span style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {foreignFriendly && (
+            <span style={{ fontSize: 10, color: "#1D9E75", background: "#E1F5EE", borderRadius: 4, padding: "1px 5px" }}>
+              外国人友好
+            </span>
+          )}
+          {hasChinese && (
+            <span style={{ fontSize: 10, color: "#2563EB", background: "#EFF6FF", borderRadius: 4, padding: "1px 5px" }}>
+              支持中文
+            </span>
+          )}
+        </span>
+      )}
 
       {/* Mandatory external-link badge — spec §3.10 */}
       <span

@@ -53,10 +53,10 @@ export function LossAversionBanner({ copy }: Props) {
       {/* Left: stat + text */}
       <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap", flex: 1 }}>
         <span style={{ fontSize: 20, fontWeight: 500, color: "#854F0B", lineHeight: 1 }}>
-          39%
+          {copy.statBannerPercent}
         </span>
         <span style={{ fontSize: 13, color: "#633806", lineHeight: 1.4 }}>
-          {copy.lossAversionText}
+          {copy.statBannerText}
         </span>
       </div>
 
@@ -76,7 +76,7 @@ export function LossAversionBanner({ copy }: Props) {
           minHeight: 28,
         }}
       >
-        查看避坑攻略 →
+        {copy.statBannerCta}
       </button>
 
       {/* Close */}
@@ -103,7 +103,7 @@ export function LossAversionBanner({ copy }: Props) {
 
       {/* Source attribution */}
       <span style={{ width: "100%", fontSize: 10, color: "#854F0B", opacity: 0.65, marginTop: -4 }}>
-        数据来源：法务省外国人住民調査報告書
+        {copy.statBannerSource}
       </span>
     </div>
   );

@@ -57,15 +57,7 @@ const CHANNEL_CONFIG = {
   phone:     process.env.NEXT_PUBLIC_PHONE_NUMBER  ?? "",
 };
 
-const EXTERNAL_PLATFORMS = [
-  { name: "AtHome",        href: "https://www.athome.co.jp" },
-  { name: "SUUMO",         href: "https://suumo.jp" },
-  { name: "LIFULL HOME'S", href: "https://www.homes.co.jp" },
-  { name: "CHINTAI",       href: "https://www.chintai.net" },
-  { name: "UR賃貸",        href: "https://www.ur-net.go.jp/chintai" },
-  { name: "GoodRooms",     href: "https://www.goodrooms.jp" },
-  { name: "Real Estate Japan", href: "https://realestate.co.jp" },
-];
+import { platforms } from "@/lib/platforms/japan-property-platforms";
 
 const AUTH_ENABLED = process.env.NEXT_PUBLIC_AUTH_ENABLED === "true";
 /** V12: SSE streaming. Set to "false" to fall back to the synchronous /api/router endpoint. */
@@ -135,6 +127,7 @@ export default function JTGHomepage({ params }: PageProps) {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   function handleTabClick(tab: TabKey) {
+    track(Events.FAQ_TAB_CLICK, { tab, locale });
     setActiveTab(tab);
     setSearchQuery("");
     setOpenFaqId(null);
@@ -263,14 +256,10 @@ export default function JTGHomepage({ params }: PageProps) {
           Japan<span style={{ color: "#1D9E75" }}>Trust</span>Gateway
         </span>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {/* V6 ZONE 0: Trust center nav */}
-          <button
-            onClick={() => {
-              track(Events.VERIFY_CENTER_VISIT, { locale });
-              document.getElementById("jtg-trust-promises")?.scrollIntoView({
-                behavior: "smooth", block: "start",
-              });
-            }}
+          {/* V6 ZONE 0: Trust center nav — links to dedicated page */}
+          <a
+            href={`/${locale}/trust-center`}
+            onClick={() => track(Events.VERIFY_CENTER_VISIT, { locale })}
             style={{
               fontSize: 12, padding: "4px 10px",
               border: "0.5px solid var(--color-border-secondary)",
@@ -278,10 +267,11 @@ export default function JTGHomepage({ params }: PageProps) {
               background: "transparent",
               color: "var(--color-text-secondary)",
               cursor: "pointer", fontFamily: "var(--font-sans)",
+              textDecoration: "none",
             }}
           >
             {copy.trustCenterNavLabel}
-          </button>
+          </a>
           {/* Language switcher — spec §3.1 verification: locale matches URL */}
           <span
             style={{
@@ -527,11 +517,9 @@ export default function JTGHomepage({ params }: PageProps) {
               label={copy[p.key]}
               promiseIndex={i + 1}
               locale={locale}
+              href={`/${locale}/trust-center#${p.anchor}`}
               onClick={() => {
-                // Jump to ZONE 6 trust section (trust-center page not yet ready)
-                document.getElementById("jtg-trust-zone6")?.scrollIntoView({
-                  behavior: "smooth", block: "start",
-                });
+                track(Events.TRUST_PROMISE_CLICK, { promise: p.anchor, locale });
               }}
             />
           ))}
@@ -550,11 +538,14 @@ export default function JTGHomepage({ params }: PageProps) {
             gap: 8,
           }}
         >
-          {EXTERNAL_PLATFORMS.map((p) => (
+          {platforms.map((p) => (
             <ExternalPlatformLink
-              key={p.name}
+              key={p.id}
               name={p.name}
-              href={p.href}
+              href={p.url}
+              description={p.description}
+              foreignFriendly={p.foreignFriendly}
+              hasChinese={p.hasChinese}
               locale={locale}
               copy={copy}
             />
@@ -962,12 +953,12 @@ export default function JTGHomepage({ params }: PageProps) {
           <TrustCommitmentCard
             icon="🛡️" title={copy.trustPromise1} summary={copy.trustPromise1Detail}
             detail={copy.trustPromise1Detail} status="verified" locale={locale} commitmentName="identity"
-            actions={[{ label: copy.trustAction1Label, href: "https://etsuran.mlit.go.jp/TAKKEN/takkenKensaku.do", external: true }]}
+            actions={[{ label: copy.trustAction1Label, href: "https://www.mlit.go.jp/totikensangyo/totikensangyo_tk5_000085.html", external: true }]}
           />
           <TrustCommitmentCard
             icon="📄" title={copy.trustPromise2} summary={copy.trustPromise2Detail}
             detail={copy.trustPromise2Detail} status="verified" locale={locale} commitmentName="documents"
-            actions={[{ label: copy.trustAction2aLabel }, { label: copy.trustAction2bLabel }]}
+            actions={[{ label: copy.trustAction2aLabel, href: `/${locale}/verify-evidence` }, { label: copy.trustAction2bLabel }]}
           />
           <TrustCommitmentCard
             icon="📋" title={copy.trustPromise3} summary={copy.trustPromise3Detail}
@@ -977,7 +968,7 @@ export default function JTGHomepage({ params }: PageProps) {
           <TrustCommitmentCard
             icon="⚠️" title={copy.trustPromise4} summary={copy.trustPromise4Detail}
             detail={copy.trustPromise4Detail} status="partial" locale={locale} commitmentName="risk"
-            actions={[{ label: copy.trustAction4Label }]}
+            actions={[{ label: copy.trustAction4Label, href: `/${locale}/trust-center#risk` }]}
           />
           <TrustCommitmentCard
             icon="🔒" title={copy.trustPromise5} summary={copy.trustPromise5Detail}
@@ -1117,6 +1108,13 @@ export default function JTGHomepage({ params }: PageProps) {
           lineHeight: 1.6,
         }}
       >
+        {/* IP-8: Company info from env vars, never hardcoded */}
+        {process.env.NEXT_PUBLIC_COMPANY_NAME && (
+          <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: "0 0 6px" }}>
+            {copy.footerOperator}{process.env.NEXT_PUBLIC_COMPANY_NAME}
+            {process.env.NEXT_PUBLIC_COMPANY_LOCATION && `（${process.env.NEXT_PUBLIC_COMPANY_LOCATION}）`}
+          </p>
+        )}
         <p style={{ margin: "0 0 4px" }}>{copy.footerDisclaimer}</p>
         {/* V6 ZONE 10: Compliance note */}
         <p style={{ margin: "0 0 6px", fontSize: 10, color: "var(--color-text-tertiary)" }}>
