@@ -196,6 +196,45 @@ export interface HomepageCopy {
   // Footer compliance
   footerComplianceNote:  string;
   footerReportViolation: string;
+  footerEvidenceVerify:  string;
+
+  // ── V6 Fix: additional keys ───────────────────────────────────────────
+
+  // ZONE 1: Loss aversion banner
+  lossAversionText:      string;
+  lossAversionSource:    string;
+
+  // ZONE 4: Analysis timestamp note
+  analysisTimestampNote: string;
+
+  // ZONE 4c: View trust dashboard button
+  viewTrustDashboard:    string;
+
+  // ZONE 6: Trust commitment card action labels
+  trustAction1Label:     string;
+  trustAction2aLabel:    string;
+  trustAction2bLabel:    string;
+  trustAction3Label:     string;
+  trustAction3LoginHint: string;
+  trustAction4Label:     string;
+  trustAction5aLabel:    string;
+  trustAction5bLabel:    string;
+
+  // ZONE 6b: Transparency layer extras
+  transparencyDisclaimer:   string;
+  transparencyExpandLabel:  string;
+  transparencyAnalysisTime: string;
+  transparencyEvidenceHash: string;
+  transparencyViewFull:     string;
+
+  // ZONE 8: Confirmation strip items
+  confirmSendItem1:     string;
+  confirmSendItem2:     string;
+  confirmSendItem3:     string;
+  confirmSendItem4:     string;
+  confirmNotSendItem1:  string;
+  confirmNotSendItem2:  string;
+  confirmNotSendItem3:  string;
 }
 
 const copy: Record<Locale, HomepageCopy> = {
@@ -294,11 +333,11 @@ const copy: Record<Locale, HomepageCopy> = {
     tier2Notice:       "",
 
     // V6 Trust & Transparency
-    trustPromise1:        "身份已核实",
-    trustPromise2:        "文件已验证",
-    trustPromise3:        "流程可追溯",
-    trustPromise4:        "风险已说明",
-    trustPromise5:        "数据已保护",
+    trustPromise1:        "身份可验证",
+    trustPromise2:        "文件可验真",
+    trustPromise3:        "流程可追踪",
+    trustPromise4:        "风险可解释",
+    trustPromise5:        "数据被保护",
     trustPromise1Detail:  "中介资质通过国土交通省数据库核验",
     trustPromise2Detail:  "上传文件与公开数据库交叉比对",
     trustPromise3Detail:  "每步操作记录存证，可随时查阅",
@@ -338,6 +377,43 @@ const copy: Record<Locale, HomepageCopy> = {
     verifyNavLabel:      "验证记录",
     footerComplianceNote:  "本平台不提供法律、税务或投资建议。所有分析结果仅供参考。",
     footerReportViolation: "举报违规",
+    footerEvidenceVerify:  "存证查询",
+
+    // ZONE 1
+    lossAversionText:      "在日本，39.3% 的外国人曾因国籍被拒租（法务省数据）",
+    lossAversionSource:    "法务省",
+
+    // ZONE 4
+    analysisTimestampNote: "本次分析结果将生成时间戳记录，供您后续核验",
+
+    // ZONE 4c
+    viewTrustDashboard:    "查看可信看板",
+
+    // ZONE 6 actions
+    trustAction1Label:     "国土交通省核查 ↗",
+    trustAction2aLabel:    "了解验证方法",
+    trustAction2bLabel:    "查看存证记录",
+    trustAction3Label:     "查看操作历史",
+    trustAction3LoginHint: "需登录",
+    trustAction4Label:     "查看风险评估方法",
+    trustAction5aLabel:    "隐私政策",
+    trustAction5bLabel:    "申请删除数据",
+
+    // ZONE 6b extras
+    transparencyDisclaimer:   "以上信息用于技术透明，不改变「仅供参考」的性质",
+    transparencyExpandLabel:  "展开",
+    transparencyAnalysisTime: "分析时间",
+    transparencyEvidenceHash: "存证摘要",
+    transparencyViewFull:     "查看完整",
+
+    // ZONE 8 items
+    confirmSendItem1:     "分析截图缩略图",
+    confirmSendItem2:     "AI 分析摘要（非原文）",
+    confirmSendItem3:     "您的问题内容",
+    confirmSendItem4:     "操作时间戳",
+    confirmNotSendItem1:  "截图原文件",
+    confirmNotSendItem2:  "您的身份信息（未登录时）",
+    confirmNotSendItem3:  "设备信息",
   },
 
   // ──────────────────────────────────────────────────────────────────────
@@ -434,10 +510,10 @@ const copy: Record<Locale, HomepageCopy> = {
     tier2Notice:       "",
 
     // V6 Trust & Transparency
-    trustPromise1:        "Identity verified",
-    trustPromise2:        "Documents authenticated",
-    trustPromise3:        "Process traceable",
-    trustPromise4:        "Risks explained",
+    trustPromise1:        "Identity verifiable",
+    trustPromise2:        "Documents verifiable",
+    trustPromise3:        "Process trackable",
+    trustPromise4:        "Risks explainable",
     trustPromise5:        "Data protected",
     trustPromise1Detail:  "Agent licence verified against MLIT database",
     trustPromise2Detail:  "Uploaded documents cross-referenced with public records",
@@ -478,6 +554,37 @@ const copy: Record<Locale, HomepageCopy> = {
     verifyNavLabel:      "Verify record",
     footerComplianceNote:  "This platform does not provide legal, tax, or investment advice. All analysis results are for reference only.",
     footerReportViolation: "Report a violation",
+    footerEvidenceVerify:  "Verify evidence",
+
+    lossAversionText:      "In Japan, 39.3% of foreign residents have been refused rental due to nationality (MOJ data)",
+    lossAversionSource:    "Ministry of Justice",
+
+    analysisTimestampNote: "This analysis will generate a timestamp record for your future verification",
+
+    viewTrustDashboard:    "View trust dashboard",
+
+    trustAction1Label:     "Check MLIT database ↗",
+    trustAction2aLabel:    "Learn verification method",
+    trustAction2bLabel:    "View evidence record",
+    trustAction3Label:     "View operation history",
+    trustAction3LoginHint: "Login required",
+    trustAction4Label:     "View risk assessment method",
+    trustAction5aLabel:    "Privacy policy",
+    trustAction5bLabel:    "Request data deletion",
+
+    transparencyDisclaimer:   "The above is for technical transparency and does not change the 'for reference only' nature",
+    transparencyExpandLabel:  "Expand",
+    transparencyAnalysisTime: "Analysis time",
+    transparencyEvidenceHash: "Evidence digest",
+    transparencyViewFull:     "View full",
+
+    confirmSendItem1:     "Analysis screenshot thumbnail",
+    confirmSendItem2:     "AI analysis summary (not original text)",
+    confirmSendItem3:     "Your question content",
+    confirmSendItem4:     "Operation timestamp",
+    confirmNotSendItem1:  "Original screenshot file",
+    confirmNotSendItem2:  "Your identity information (when not logged in)",
+    confirmNotSendItem3:  "Device information",
   },
 
   // ──────────────────────────────────────────────────────────────────────
@@ -574,11 +681,11 @@ const copy: Record<Locale, HomepageCopy> = {
     tier2Notice:       "",
 
     // V6 Trust & Transparency
-    trustPromise1:        "本人確認済み",
-    trustPromise2:        "書類認証済み",
+    trustPromise1:        "本人確認可能",
+    trustPromise2:        "書類検証可能",
     trustPromise3:        "プロセス追跡可能",
-    trustPromise4:        "リスク説明済み",
-    trustPromise5:        "データ保護済み",
+    trustPromise4:        "リスク説明可能",
+    trustPromise5:        "データ保護",
     trustPromise1Detail:  "仲介業者の免許を国土交通省データベースで照合済み",
     trustPromise2Detail:  "アップロードされた書類を公開データベースと照合",
     trustPromise3Detail:  "各ステップが証拠記録として保存され、確認可能",
@@ -618,6 +725,37 @@ const copy: Record<Locale, HomepageCopy> = {
     verifyNavLabel:      "記録を検証",
     footerComplianceNote:  "本プラットフォームは法律、税務、投資に関する助言を提供しません。分析結果は参考情報としてのみご利用ください。",
     footerReportViolation: "違反を報告",
+    footerEvidenceVerify:  "証拠照会",
+
+    lossAversionText:      "日本では外国人の39.3%が国籍を理由に賃貸を断られた経験があります（法務省データ）",
+    lossAversionSource:    "法務省",
+
+    analysisTimestampNote: "この分析結果にはタイムスタンプ記録が生成され、今後の検証に利用できます",
+
+    viewTrustDashboard:    "信頼ダッシュボードを見る",
+
+    trustAction1Label:     "国土交通省で確認 ↗",
+    trustAction2aLabel:    "検証方法を確認",
+    trustAction2bLabel:    "証拠記録を見る",
+    trustAction3Label:     "操作履歴を見る",
+    trustAction3LoginHint: "ログインが必要",
+    trustAction4Label:     "リスク評価方法を見る",
+    trustAction5aLabel:    "プライバシーポリシー",
+    trustAction5bLabel:    "データ削除を申請",
+
+    transparencyDisclaimer:   "上記は技術的透明性のための情報であり、「参考情報」の性質を変えるものではありません",
+    transparencyExpandLabel:  "展開",
+    transparencyAnalysisTime: "分析時間",
+    transparencyEvidenceHash: "証拠ダイジェスト",
+    transparencyViewFull:     "全文を見る",
+
+    confirmSendItem1:     "分析スクリーンショットのサムネイル",
+    confirmSendItem2:     "AI分析の要約（原文ではない）",
+    confirmSendItem3:     "ご質問の内容",
+    confirmSendItem4:     "操作タイムスタンプ",
+    confirmNotSendItem1:  "元のスクリーンショットファイル",
+    confirmNotSendItem2:  "お客様の身元情報（未ログイン時）",
+    confirmNotSendItem3:  "デバイス情報",
   },
 
   // ──────────────────────────────────────────────────────────────────────
@@ -718,11 +856,11 @@ const copy: Record<Locale, HomepageCopy> = {
     tier2Notice:       "핵심 콘텐츠가 번역되었습니다. 전체 FAQ는 영어 또는 중국어를 참조하세요.",
 
     // V6 Trust & Transparency
-    trustPromise1:        "신원 확인됨",
-    trustPromise2:        "서류 인증됨",
+    trustPromise1:        "신원 확인 가능",
+    trustPromise2:        "서류 검증 가능",
     trustPromise3:        "절차 추적 가능",
-    trustPromise4:        "위험 설명됨",
-    trustPromise5:        "데이터 보호됨",
+    trustPromise4:        "위험 설명 가능",
+    trustPromise5:        "데이터 보호",
     trustPromise1Detail:  "중개업자 면허를 국토교통성 데이터베이스에서 확인",
     trustPromise2Detail:  "업로드된 서류를 공개 기록과 대조 확인",
     trustPromise3Detail:  "모든 단계가 증거 기록으로 저장되어 확인 가능",
@@ -762,6 +900,32 @@ const copy: Record<Locale, HomepageCopy> = {
     verifyNavLabel:      "기록 검증",
     footerComplianceNote:  "본 플랫폼은 법률, 세무 또는 투자 조언을 제공하지 않습니다. 분석 결과는 참고용입니다.",
     footerReportViolation: "위반 신고",
+    footerEvidenceVerify:  "증거 조회",
+
+    lossAversionText:      "일본에서 외국인의 39.3%가 국적을 이유로 임대를 거절당한 경험이 있습니다 (법무성 데이터)",
+    lossAversionSource:    "법무성",
+    analysisTimestampNote: "이 분석 결과에는 향후 검증을 위한 타임스탬프 기록이 생성됩니다",
+    viewTrustDashboard:    "신뢰 대시보드 보기",
+    trustAction1Label:     "국토교통성 확인 ↗",
+    trustAction2aLabel:    "검증 방법 확인",
+    trustAction2bLabel:    "증거 기록 보기",
+    trustAction3Label:     "작업 이력 보기",
+    trustAction3LoginHint: "로그인 필요",
+    trustAction4Label:     "위험 평가 방법 보기",
+    trustAction5aLabel:    "개인정보 처리방침",
+    trustAction5bLabel:    "데이터 삭제 요청",
+    transparencyDisclaimer:   "위 정보는 기술적 투명성을 위한 것이며 '참고용'의 성격을 변경하지 않습니다",
+    transparencyExpandLabel:  "펼치기",
+    transparencyAnalysisTime: "분석 시간",
+    transparencyEvidenceHash: "증거 다이제스트",
+    transparencyViewFull:     "전체 보기",
+    confirmSendItem1:     "분석 스크린샷 썸네일",
+    confirmSendItem2:     "AI 분석 요약 (원문 아님)",
+    confirmSendItem3:     "질문 내용",
+    confirmSendItem4:     "작업 타임스탬프",
+    confirmNotSendItem1:  "원본 스크린샷 파일",
+    confirmNotSendItem2:  "신원 정보 (미로그인 시)",
+    confirmNotSendItem3:  "기기 정보",
   },
 
   "vi": {
@@ -857,10 +1021,10 @@ const copy: Record<Locale, HomepageCopy> = {
     tier2Notice:       "Nội dung cốt lõi đã được dịch. Xem đầy đủ FAQ bằng tiếng Anh hoặc tiếng Trung.",
 
     // V6 Trust & Transparency
-    trustPromise1:        "Danh tính đã xác minh",
-    trustPromise2:        "Tài liệu đã xác thực",
-    trustPromise3:        "Quy trình có thể truy vết",
-    trustPromise4:        "Rủi ro đã được giải thích",
+    trustPromise1:        "Danh tính có thể xác minh",
+    trustPromise2:        "Tài liệu có thể xác thực",
+    trustPromise3:        "Quy trình có thể theo dõi",
+    trustPromise4:        "Rủi ro có thể giải thích",
     trustPromise5:        "Dữ liệu được bảo vệ",
     trustPromise1Detail:  "Giấy phép môi giới đã được xác minh qua CSDL Bộ GTVT",
     trustPromise2Detail:  "Tài liệu tải lên được đối chiếu với hồ sơ công khai",
@@ -901,6 +1065,32 @@ const copy: Record<Locale, HomepageCopy> = {
     verifyNavLabel:      "Xác minh hồ sơ",
     footerComplianceNote:  "Nền tảng này không cung cấp tư vấn pháp lý, thuế hoặc đầu tư. Kết quả phân tích chỉ mang tính tham khảo.",
     footerReportViolation: "Báo cáo vi phạm",
+    footerEvidenceVerify:  "Xác minh bằng chứng",
+
+    lossAversionText:      "Tại Nhật, 39,3% cư dân nước ngoài từng bị từ chối thuê nhà vì quốc tịch (dữ liệu Bộ Tư pháp)",
+    lossAversionSource:    "Bộ Tư pháp",
+    analysisTimestampNote: "Kết quả phân tích này sẽ tạo bản ghi dấu thời gian để bạn xác minh sau",
+    viewTrustDashboard:    "Xem bảng tin cậy",
+    trustAction1Label:     "Kiểm tra MLIT ↗",
+    trustAction2aLabel:    "Tìm hiểu phương pháp xác minh",
+    trustAction2bLabel:    "Xem hồ sơ bằng chứng",
+    trustAction3Label:     "Xem lịch sử thao tác",
+    trustAction3LoginHint: "Cần đăng nhập",
+    trustAction4Label:     "Xem phương pháp đánh giá rủi ro",
+    trustAction5aLabel:    "Chính sách bảo mật",
+    trustAction5bLabel:    "Yêu cầu xóa dữ liệu",
+    transparencyDisclaimer:   "Thông tin trên nhằm minh bạch kỹ thuật, không thay đổi tính chất 'tham khảo'",
+    transparencyExpandLabel:  "Mở rộng",
+    transparencyAnalysisTime: "Thời gian phân tích",
+    transparencyEvidenceHash: "Tóm tắt bằng chứng",
+    transparencyViewFull:     "Xem đầy đủ",
+    confirmSendItem1:     "Hình thu nhỏ ảnh chụp phân tích",
+    confirmSendItem2:     "Tóm tắt phân tích AI (không phải văn bản gốc)",
+    confirmSendItem3:     "Nội dung câu hỏi của bạn",
+    confirmSendItem4:     "Dấu thời gian thao tác",
+    confirmNotSendItem1:  "Tệp ảnh chụp gốc",
+    confirmNotSendItem2:  "Thông tin danh tính (khi chưa đăng nhập)",
+    confirmNotSendItem3:  "Thông tin thiết bị",
   },
 
   "th": {
@@ -996,10 +1186,10 @@ const copy: Record<Locale, HomepageCopy> = {
     tier2Notice:       "เนื้อหาหลักได้รับการแปลแล้ว ดู FAQ ฉบับเต็มเป็นภาษาอังกฤษหรือจีน",
 
     // V6 Trust & Transparency
-    trustPromise1:        "ยืนยันตัวตนแล้ว",
-    trustPromise2:        "เอกสารรับรองแล้ว",
+    trustPromise1:        "ยืนยันตัวตนได้",
+    trustPromise2:        "เอกสารตรวจสอบได้",
     trustPromise3:        "กระบวนการติดตามได้",
-    trustPromise4:        "อธิบายความเสี่ยงแล้ว",
+    trustPromise4:        "อธิบายความเสี่ยงได้",
     trustPromise5:        "ข้อมูลได้รับการปกป้อง",
     trustPromise1Detail:  "ใบอนุญาตนายหน้าตรวจสอบผ่านฐานข้อมูลกระทรวงที่ดิน",
     trustPromise2Detail:  "เอกสารที่อัปโหลดตรวจสอบกับบันทึกสาธารณะ",
@@ -1040,6 +1230,32 @@ const copy: Record<Locale, HomepageCopy> = {
     verifyNavLabel:      "ตรวจสอบบันทึก",
     footerComplianceNote:  "แพลตฟอร์มนี้ไม่ให้คำแนะนำทางกฎหมาย ภาษี หรือการลงทุน ผลวิเคราะห์ใช้เพื่อการอ้างอิงเท่านั้น",
     footerReportViolation: "แจ้งการละเมิด",
+    footerEvidenceVerify:  "ตรวจสอบหลักฐาน",
+
+    lossAversionText:      "ในญี่ปุ่น 39.3% ของชาวต่างชาติเคยถูกปฏิเสธการเช่าเนื่องจากสัญชาติ (ข้อมูลกระทรวงยุติธรรม)",
+    lossAversionSource:    "กระทรวงยุติธรรม",
+    analysisTimestampNote: "ผลการวิเคราะห์นี้จะสร้างบันทึกเวลาประทับเพื่อการตรวจสอบในอนาคต",
+    viewTrustDashboard:    "ดูแดชบอร์ดความน่าเชื่อถือ",
+    trustAction1Label:     "ตรวจสอบ MLIT ↗",
+    trustAction2aLabel:    "เรียนรู้วิธีตรวจสอบ",
+    trustAction2bLabel:    "ดูบันทึกหลักฐาน",
+    trustAction3Label:     "ดูประวัติการทำงาน",
+    trustAction3LoginHint: "ต้องเข้าสู่ระบบ",
+    trustAction4Label:     "ดูวิธีประเมินความเสี่ยง",
+    trustAction5aLabel:    "นโยบายความเป็นส่วนตัว",
+    trustAction5bLabel:    "ขอลบข้อมูล",
+    transparencyDisclaimer:   "ข้อมูลข้างต้นมีไว้เพื่อความโปร่งใสทางเทคนิค ไม่เปลี่ยนแปลงลักษณะ 'เพื่อการอ้างอิง'",
+    transparencyExpandLabel:  "ขยาย",
+    transparencyAnalysisTime: "เวลาวิเคราะห์",
+    transparencyEvidenceHash: "สรุปหลักฐาน",
+    transparencyViewFull:     "ดูทั้งหมด",
+    confirmSendItem1:     "ภาพขนาดย่อของภาพหน้าจอวิเคราะห์",
+    confirmSendItem2:     "สรุปการวิเคราะห์ AI (ไม่ใช่ข้อความต้นฉบับ)",
+    confirmSendItem3:     "เนื้อหาคำถามของคุณ",
+    confirmSendItem4:     "เวลาประทับการดำเนินงาน",
+    confirmNotSendItem1:  "ไฟล์ภาพหน้าจอต้นฉบับ",
+    confirmNotSendItem2:  "ข้อมูลตัวตนของคุณ (เมื่อยังไม่เข้าสู่ระบบ)",
+    confirmNotSendItem3:  "ข้อมูลอุปกรณ์",
   },
 };
 

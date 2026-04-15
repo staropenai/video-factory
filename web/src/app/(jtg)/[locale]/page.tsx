@@ -39,8 +39,11 @@ import { StreamErrorBoundary } from "@/components/homepage/StreamErrorBoundary";
 import { TrustBadge } from "@/components/homepage/TrustBadge";
 import { TrustDashboard } from "@/components/homepage/TrustDashboard";
 import { EvidenceModal } from "@/components/homepage/EvidenceModal";
+import { LossAversionBanner } from "@/components/homepage/LossAversionBanner";
+import { TrustCommitmentCard } from "@/components/homepage/TrustCommitmentCard";
+import { TransparencyLayer } from "@/components/homepage/TransparencyLayer";
 import { useStreamQuery } from "@/hooks/useStreamQuery";
-import { FAQ_DATA, type TabKey } from "@/lib/jtg/faq-data";
+import { getFaqData, type TabKey } from "@/lib/jtg/faq-data";
 
 // ─── Runtime config ──────────────────────────────────────────────────────────
 // All URLs come from env so this file stays free of hardcoded platform references.
@@ -59,6 +62,8 @@ const EXTERNAL_PLATFORMS = [
   { name: "LIFULL HOME'S", href: "https://www.homes.co.jp" },
   { name: "CHINTAI",       href: "https://www.chintai.net" },
   { name: "UR賃貸",        href: "https://www.ur-net.go.jp/chintai" },
+  { name: "GoodRooms",     href: "https://www.goodrooms.jp" },
+  { name: "Real Estate Japan", href: "https://realestate.co.jp" },
 ];
 
 const AUTH_ENABLED = process.env.NEXT_PUBLIC_AUTH_ENABLED === "true";
@@ -116,7 +121,8 @@ export default function JTGHomepage({ params }: PageProps) {
   }, [locale]);
 
   // ── Derived FAQ list ──────────────────────────────────────────────────────
-  const allFaqs = FAQ_DATA[activeTab];
+  const faqData = getFaqData(locale);
+  const allFaqs = faqData[activeTab];
   const filteredFaqs = searchQuery.trim()
     ? allFaqs.filter(
         (f) =>
@@ -234,6 +240,9 @@ export default function JTGHomepage({ params }: PageProps) {
         minHeight: "100vh",
       }}
     >
+
+      {/* ── V6 ZONE 1: Loss aversion banner ──────────────────────────── */}
+      <LossAversionBanner copy={copy} />
 
       {/* ── Navigation ─────────────────────────────────────────────────── */}
       <nav
@@ -542,11 +551,11 @@ export default function JTGHomepage({ params }: PageProps) {
           display: "flex", gap: 6, flexWrap: "wrap",
         }}>
           {([
-            { key: "trustPromise1" as const, status: "verified" as const },
-            { key: "trustPromise2" as const, status: "verified" as const },
-            { key: "trustPromise3" as const, status: "verified" as const },
-            { key: "trustPromise4" as const, status: "partial" as const },
-            { key: "trustPromise5" as const, status: "verified" as const },
+            { key: "trustPromise1" as const, status: "verified" as const, anchor: "identity" },
+            { key: "trustPromise2" as const, status: "verified" as const, anchor: "documents" },
+            { key: "trustPromise3" as const, status: "verified" as const, anchor: "process" },
+            { key: "trustPromise4" as const, status: "partial" as const, anchor: "risk" },
+            { key: "trustPromise5" as const, status: "verified" as const, anchor: "data" },
           ]).map((p, i) => (
             <TrustBadge
               key={i}
@@ -555,7 +564,8 @@ export default function JTGHomepage({ params }: PageProps) {
               promiseIndex={i + 1}
               locale={locale}
               onClick={() => {
-                document.getElementById("jtg-trust-promises")?.scrollIntoView({
+                // Jump to ZONE 6 trust section (trust-center page not yet ready)
+                document.getElementById("jtg-trust-zone6")?.scrollIntoView({
                   behavior: "smooth", block: "start",
                 });
               }}
@@ -716,12 +726,50 @@ export default function JTGHomepage({ params }: PageProps) {
             }}
           >
             {analysisResult}
+            {/* V6 Task 3: Timestamp note + disclaimer */}
+            <p style={{ fontSize: 11, color: "#0F6E56", margin: "8px 0 0", opacity: 0.7 }}>
+              {copy.analysisTimestampNote}
+            </p>
+            <p style={{ fontSize: 11, color: "var(--color-text-secondary)", margin: "4px 0 0" }}>
+              {copy.analysisDisclaimer}
+            </p>
+          </div>
+        )}
+        {/* V6 Task 4: View trust dashboard button (after analysis complete) */}
+        {analysisResult && !analysisLoading && analysisId && (
+          <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+            <button
+              onClick={() => {
+                track(Events.TRUST_DASHBOARD_VIEW, { analysisId, locale });
+                setShowTrustDashboard(true);
+                setTimeout(() => {
+                  document.getElementById("jtg-trust-dashboard")?.scrollIntoView({
+                    behavior: "smooth", block: "start",
+                  });
+                }, 100);
+              }}
+              style={{
+                fontSize: 12,
+                padding: "6px 14px",
+                minHeight: 36,
+                background: "#E1F5EE",
+                color: "#1D9E75",
+                border: "0.5px solid #1D9E75",
+                borderRadius: "var(--border-radius-md)",
+                cursor: "pointer",
+                fontFamily: "var(--font-sans)",
+                fontWeight: 500,
+              }}
+            >
+              {copy.viewTrustDashboard}
+            </button>
           </div>
         )}
       </section>
 
       {/* ── V6 ZONE 4c: Trust Dashboard (conditional after analysis) ──── */}
       {showTrustDashboard && analysisId && (
+        <div id="jtg-trust-dashboard">
         <TrustDashboard
           analysisId={analysisId}
           locale={locale}
@@ -731,6 +779,7 @@ export default function JTGHomepage({ params }: PageProps) {
             setShowEvidenceModal(true);
           }}
         />
+        </div>
       )}
 
       {/* ── V6 ZONE 4c: Evidence Modal (normal-flow, not fixed) ──────── */}
@@ -908,15 +957,11 @@ export default function JTGHomepage({ params }: PageProps) {
         )}
       </section>
 
-      {/* ── V6 ZONE 6: Verifiable promises (spec §3.7 — after FAQ) ───── */}
+      {/* ── V6 ZONE 6: Verifiable promises (expandable cards) ──────────── */}
       <section
+        id="jtg-trust-zone6"
         aria-label={copy.trustTitle}
-        style={{
-          margin: "0 20px 14px",
-          padding: "12px 14px",
-          border: "0.5px solid var(--color-border-tertiary)",
-          borderRadius: "var(--border-radius-md)",
-        }}
+        style={{ margin: "0 20px 14px" }}
       >
         <p style={{ fontSize: 12, fontWeight: 500, color: "var(--color-text-secondary)", margin: "0 0 8px" }}>
           {copy.trustTitle}
@@ -948,51 +993,52 @@ export default function JTGHomepage({ params }: PageProps) {
             </li>
           ))}
         </ul>
-        {/* V6: 5 verifiable promise details */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {([
-            { label: copy.trustPromise1, detail: copy.trustPromise1Detail, status: "verified" as const },
-            { label: copy.trustPromise2, detail: copy.trustPromise2Detail, status: "verified" as const },
-            { label: copy.trustPromise3, detail: copy.trustPromise3Detail, status: "verified" as const },
-            { label: copy.trustPromise4, detail: copy.trustPromise4Detail, status: "partial" as const },
-            { label: copy.trustPromise5, detail: copy.trustPromise5Detail, status: "verified" as const },
-          ]).map((p, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-              <TrustBadge status={p.status} label={p.label} locale={locale} />
-              <span style={{ fontSize: 11, color: "var(--color-text-secondary)", lineHeight: 1.5, paddingTop: 4 }}>
-                {p.detail}
-              </span>
-            </div>
-          ))}
+        {/* V6: 5 expandable commitment cards */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <TrustCommitmentCard
+            icon="🛡️" title={copy.trustPromise1} summary={copy.trustPromise1Detail}
+            detail={copy.trustPromise1Detail} status="verified" locale={locale} commitmentName="identity"
+            actions={[{ label: copy.trustAction1Label, href: "https://etsuran.mlit.go.jp/TAKKEN/takkenKensaku.do", external: true }]}
+          />
+          <TrustCommitmentCard
+            icon="📄" title={copy.trustPromise2} summary={copy.trustPromise2Detail}
+            detail={copy.trustPromise2Detail} status="verified" locale={locale} commitmentName="documents"
+            actions={[{ label: copy.trustAction2aLabel }, { label: copy.trustAction2bLabel }]}
+          />
+          <TrustCommitmentCard
+            icon="📋" title={copy.trustPromise3} summary={copy.trustPromise3Detail}
+            detail={copy.trustPromise3Detail} status="verified" locale={locale} commitmentName="process"
+            actions={[{ label: `${copy.trustAction3Label} (${copy.trustAction3LoginHint})` }]}
+          />
+          <TrustCommitmentCard
+            icon="⚠️" title={copy.trustPromise4} summary={copy.trustPromise4Detail}
+            detail={copy.trustPromise4Detail} status="partial" locale={locale} commitmentName="risk"
+            actions={[{ label: copy.trustAction4Label }]}
+          />
+          <TrustCommitmentCard
+            icon="🔒" title={copy.trustPromise5} summary={copy.trustPromise5Detail}
+            detail={copy.trustPromise5Detail} status="verified" locale={locale} commitmentName="data"
+            actions={[{ label: copy.trustAction5aLabel, href: `/${locale}/privacy` }, { label: copy.trustAction5bLabel }]}
+          />
         </div>
       </section>
 
-      {/* ── V6 ZONE 6b: Transparency layer ─────────────────────────────── */}
+      {/* ── V6 ZONE 6b: Transparency layer (collapsible) ────────────────── */}
       {showTrustDashboard && analysisId && (
-        <section
-          aria-label={copy.transparencyTitle}
-          style={{
-            margin: "0 20px 14px",
-            padding: "12px 14px",
-            border: "0.5px solid var(--color-border-tertiary)",
-            borderRadius: "var(--border-radius-md)",
-            background: "var(--color-background-secondary)",
+        <TransparencyLayer
+          copy={copy}
+          locale={locale}
+          data={{
+            analysisTime: new Date().toISOString(),
+            engineTier: "tier-c-llm",
+            confidenceLevel: "medium",
+            evidenceHash: analysisId.replace(/-/g, "").padEnd(64, "0"),
+            dataSources: [
+              { name: "MLIT Guidelines", url: "https://www.mlit.go.jp" },
+              { name: "National Consumer Affairs Center" },
+            ],
           }}
-        >
-          <p style={{ fontSize: 12, fontWeight: 500, color: "var(--color-text-secondary)", margin: "0 0 8px" }}>
-            {copy.transparencyTitle}
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-              <span style={{ color: "var(--color-text-secondary)" }}>{copy.transparencyEngine}</span>
-              <span style={{ color: "var(--color-text-primary)", fontWeight: 500 }}>{copy.engineTierC}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-              <span style={{ color: "var(--color-text-secondary)" }}>{copy.transparencyConfidence}</span>
-              <span style={{ color: "var(--color-text-primary)", fontWeight: 500 }}>{copy.confidenceMedium}</span>
-            </div>
-          </div>
-        </section>
+        />
       )}
 
       {/* ── AI zone (spec §3.5) + V4 streaming response area ──────────── */}
@@ -1034,7 +1080,7 @@ export default function JTGHomepage({ params }: PageProps) {
         </StreamErrorBoundary>
       </div>
 
-      {/* ── V6 ZONE 9: Confirmation strip (before human help) ──────────── */}
+      {/* ── V6 ZONE 9: Confirmation strip with send/not-send lists ──────── */}
       {showTrustDashboard && analysisId && (
         <section
           aria-label={copy.confirmSendScope}
@@ -1046,12 +1092,28 @@ export default function JTGHomepage({ params }: PageProps) {
             background: "#FAEEDA",
           }}
         >
+          {/* What we send */}
           <p style={{ fontSize: 12, fontWeight: 500, color: "#633806", margin: "0 0 4px" }}>
-            {copy.confirmSendScope}
+            ✓ {copy.confirmSendScope}
           </p>
-          <p style={{ fontSize: 11, color: "#633806", margin: "0 0 6px", lineHeight: 1.5 }}>
-            {copy.confirmNotSend}
+          <ul style={{ listStyle: "none", padding: 0, margin: "0 0 8px", display: "flex", flexDirection: "column", gap: 2 }}>
+            {[copy.confirmSendItem1, copy.confirmSendItem2, copy.confirmSendItem3, copy.confirmSendItem4].map((item, i) => (
+              <li key={i} style={{ fontSize: 11, color: "#633806", paddingLeft: 12, position: "relative" }}>
+                <span style={{ position: "absolute", left: 0 }}>·</span>{item}
+              </li>
+            ))}
+          </ul>
+          {/* What we don't send */}
+          <p style={{ fontSize: 12, fontWeight: 500, color: "#633806", margin: "0 0 4px" }}>
+            ✗ {copy.confirmNotSend}
           </p>
+          <ul style={{ listStyle: "none", padding: 0, margin: "0 0 8px", display: "flex", flexDirection: "column", gap: 2 }}>
+            {[copy.confirmNotSendItem1, copy.confirmNotSendItem2, copy.confirmNotSendItem3].map((item, i) => (
+              <li key={i} style={{ fontSize: 11, color: "#633806", paddingLeft: 12, position: "relative" }}>
+                <span style={{ position: "absolute", left: 0 }}>·</span>{item}
+              </li>
+            ))}
+          </ul>
           <button
             onClick={() => {
               track(Events.CONFIRM_SCOPE_MODIFY, { analysisId, locale });
@@ -1060,6 +1122,7 @@ export default function JTGHomepage({ params }: PageProps) {
               fontSize: 11, color: "#BA7517", background: "none",
               border: "0.5px solid #BA7517", borderRadius: "var(--border-radius-md)",
               padding: "4px 10px", cursor: "pointer", fontFamily: "var(--font-sans)",
+              minHeight: 30,
             }}
           >
             {copy.confirmModifyScope}
@@ -1096,11 +1159,13 @@ export default function JTGHomepage({ params }: PageProps) {
           {copy.footerComplianceNote}
         </p>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <span style={{ cursor: "pointer" }}>{copy.footerPrivacy}</span>
-          <span style={{ cursor: "pointer" }}>{copy.footerTerms}</span>
+          <a href={`/${locale}/privacy`} style={{ cursor: "pointer", color: "inherit", textDecoration: "none" }}>{copy.footerPrivacy}</a>
+          <a href={`/${locale}/terms`} style={{ cursor: "pointer", color: "inherit", textDecoration: "none" }}>{copy.footerTerms}</a>
           <span style={{ cursor: "pointer" }}>{copy.footerTranslation}</span>
+          {/* V6: Evidence verify link */}
+          <a href={`/${locale}/verify-evidence`} style={{ cursor: "pointer", color: "inherit", textDecoration: "none" }}>{copy.footerEvidenceVerify}</a>
           {/* V6: Report violation link */}
-          <span style={{ cursor: "pointer", color: "#E24B4A" }}>{copy.footerReportViolation}</span>
+          <a href={`/${locale}/report`} style={{ cursor: "pointer", color: "#E24B4A", textDecoration: "none" }}>{copy.footerReportViolation}</a>
         </div>
       </footer>
 
