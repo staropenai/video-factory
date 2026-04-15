@@ -53,6 +53,7 @@ export interface HomepageCopy {
   aiSendLabel:       string;
   aiDisclaimer:      string;   // "results for reference only" — spec §3.5 fixed copy
   aiQuotaFmt:        string;   // e.g. "{remaining}/{limit} left today"
+  aiQuotaReset:      string;   // e.g. "Resets at midnight"
   aiQuotaExhausted:  string;
 
   // Trust bar
@@ -273,6 +274,7 @@ const copy: Record<Locale, HomepageCopy> = {
     aiSendLabel:       "发送",
     aiDisclaimer:      "分析结果仅供参考，具体以平台页面及人工确认信息为准。",
     aiQuotaFmt:        "今日剩余 {remaining}/{limit} 次",
+    aiQuotaReset:      "每天 0 点重置",
     aiQuotaExhausted:  "今日额度已用完，明日零点重置。如需继续，可联系人工帮助。",
     aiThinking:        "正在分析中…",
     aiError:           "请求出错，请稍后再试。也可以直接联系人工帮助。",
@@ -450,6 +452,7 @@ const copy: Record<Locale, HomepageCopy> = {
     aiSendLabel:       "Send",
     aiDisclaimer:      "AI analysis is for reference only. Verify details with the listing page or a human agent.",
     aiQuotaFmt:        "{remaining}/{limit} uses left today",
+    aiQuotaReset:      "Resets at midnight",
     aiQuotaExhausted:  "Daily limit reached. Resets at midnight. Contact a human agent to continue.",
     aiThinking:        "Thinking…",
     aiError:           "Something went wrong. Please try again or contact a human agent.",
@@ -621,6 +624,7 @@ const copy: Record<Locale, HomepageCopy> = {
     aiSendLabel:       "送信",
     aiDisclaimer:      "AI の分析結果はあくまで参考情報です。詳細は各物件ページや担当者にご確認ください。",
     aiQuotaFmt:        "本日残り {remaining}/{limit} 回",
+    aiQuotaReset:      "毎日0時リセット",
     aiQuotaExhausted:  "本日の利用回数に達しました。深夜0時にリセットされます。引き続きご相談の場合は担当者へお問い合わせください。",
     aiThinking:        "分析中…",
     aiError:           "エラーが発生しました。もう一度お試しいただくか、担当者にお問い合わせください。",
@@ -796,6 +800,7 @@ const copy: Record<Locale, HomepageCopy> = {
     aiSendLabel:       "전송",
     aiDisclaimer:      "AI 분석 결과는 참고용입니다. 상세 내용은 매물 페이지 또는 상담원에게 확인하세요.",
     aiQuotaFmt:        "오늘 남은 횟수 {remaining}/{limit}",
+    aiQuotaReset:      "매일 자정 초기화",
     aiQuotaExhausted:  "오늘 한도에 도달했습니다. 자정에 초기화됩니다. 계속하려면 상담원에게 문의하세요.",
     aiThinking:        "분석 중…",
     aiError:           "오류가 발생했습니다. 다시 시도하거나 상담원에게 문의하세요.",
@@ -961,6 +966,7 @@ const copy: Record<Locale, HomepageCopy> = {
     aiSendLabel:       "Gửi",
     aiDisclaimer:      "Kết quả phân tích chỉ mang tính tham khảo. Vui lòng xác nhận với trang nhà hoặc người hỗ trợ.",
     aiQuotaFmt:        "Còn {remaining}/{limit} lượt hôm nay",
+    aiQuotaReset:      "Đặt lại lúc nửa đêm",
     aiQuotaExhausted:  "Đã hết lượt hôm nay. Đặt lại lúc nửa đêm. Liên hệ người hỗ trợ để tiếp tục.",
     aiThinking:        "Đang phân tích…",
     aiError:           "Đã xảy ra lỗi. Vui lòng thử lại hoặc liên hệ người hỗ trợ.",
@@ -1126,6 +1132,7 @@ const copy: Record<Locale, HomepageCopy> = {
     aiSendLabel:       "ส่ง",
     aiDisclaimer:      "ผลการวิเคราะห์เพื่ออ้างอิงเท่านั้น กรุณาตรวจสอบกับหน้าประกาศหรือทีมงาน",
     aiQuotaFmt:        "เหลือ {remaining}/{limit} ครั้งวันนี้",
+    aiQuotaReset:      "รีเซ็ตเที่ยงคืน",
     aiQuotaExhausted:  "ใช้ครบโควต้าวันนี้แล้ว รีเซ็ตเที่ยงคืน ติดต่อทีมงานเพื่อดำเนินการต่อ",
     aiThinking:        "กำลังวิเคราะห์…",
     aiError:           "เกิดข้อผิดพลาด โปรดลองอีกครั้งหรือติดต่อเจ้าหน้าที่",

@@ -1,6 +1,15 @@
 "use client";
 
+/**
+ * V5 §4.2 — Loss Aversion Banner
+ * Maturity: production-ready
+ *
+ * Shows "39% of foreigners rejected" stat with CTA scrolling to FAQ.
+ * Dismissible via localStorage. Hidden by default to avoid flash.
+ */
+
 import { useState, useEffect } from "react";
+import { track, Events } from "@/lib/analytics/events";
 import type { HomepageCopy } from "@/lib/i18n/homepage";
 
 const STORAGE_KEY = "jtg-loss-aversion-dismissed";
@@ -22,32 +31,55 @@ export function LossAversionBanner({ copy }: Props) {
 
   if (dismissed) return null;
 
+  function handleCtaClick() {
+    track(Events.STAT_BANNER_CLICK);
+    document.querySelector("#faq")?.scrollIntoView({ behavior: "smooth" });
+  }
+
   return (
     <div
       role="banner"
+      aria-label="租房风险提示"
       style={{
         display: "flex",
-        alignItems: "flex-start",
+        alignItems: "center",
         justifyContent: "space-between",
         gap: 8,
-        padding: "10px 20px",
-        background: "#FEF3C7",
-        borderBottom: "0.5px solid #F59E0B",
+        padding: "10px 16px",
+        background: "#FAEEDA",
+        flexWrap: "wrap",
       }}
     >
-      <div style={{ flex: 1 }}>
-        <p style={{ fontSize: 12, color: "#92400E", margin: 0, lineHeight: 1.5 }}>
+      {/* Left: stat + text */}
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap", flex: 1 }}>
+        <span style={{ fontSize: 20, fontWeight: 500, color: "#854F0B", lineHeight: 1 }}>
+          39%
+        </span>
+        <span style={{ fontSize: 13, color: "#633806", lineHeight: 1.4 }}>
           {copy.lossAversionText}
-        </p>
-        <a
-          href="https://www.moj.go.jp/JINKEN/jinken04_00126.html"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ fontSize: 11, color: "#B45309", textDecoration: "underline" }}
-        >
-          {copy.lossAversionSource} ↗
-        </a>
+        </span>
       </div>
+
+      {/* CTA */}
+      <button
+        onClick={handleCtaClick}
+        style={{
+          fontSize: 12,
+          color: "#854F0B",
+          fontWeight: 500,
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
+          textDecoration: "underline",
+          whiteSpace: "nowrap",
+          padding: 0,
+          minHeight: 28,
+        }}
+      >
+        查看避坑攻略 →
+      </button>
+
+      {/* Close */}
       <button
         onClick={() => {
           setDismissed(true);
@@ -58,15 +90,21 @@ export function LossAversionBanner({ copy }: Props) {
           background: "none",
           border: "none",
           fontSize: 16,
-          color: "#92400E",
+          color: "#854F0B",
           cursor: "pointer",
           padding: "0 2px",
           lineHeight: 1,
           flexShrink: 0,
+          minHeight: 28,
         }}
       >
         ×
       </button>
+
+      {/* Source attribution */}
+      <span style={{ width: "100%", fontSize: 10, color: "#854F0B", opacity: 0.65, marginTop: -4 }}>
+        数据来源：法务省外国人住民調査報告書
+      </span>
     </div>
   );
 }

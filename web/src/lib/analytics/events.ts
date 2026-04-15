@@ -46,6 +46,13 @@ export const Events = {
   // Language
   LANG_SWITCH:             "lang_switch",
 
+  // V5 additions
+  STAT_BANNER_CLICK:       "stat_banner_click",
+  GUIDE_EXPAND:            "guide_expand",
+  AI_STREAM_COMPLETE:      "ai_stream_complete",
+  UPGRADE_HINT_SHOWN:      "upgrade_hint_shown",
+  UPGRADE_HINT_CLICK:      "upgrade_hint_click",
+
   // V6 Trust & Transparency events
   TRUST_DASHBOARD_VIEW:    "trust_dashboard_view",
   TRUST_PROMISE_CLICK:     "trust_promise_click",

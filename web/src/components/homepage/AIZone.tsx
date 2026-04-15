@@ -32,7 +32,7 @@ interface Props {
     | "aiDisclaimer"
     | "aiQuotaFmt"
     | "aiQuotaExhausted"
-  >;
+  > & { aiQuotaReset?: string };
   locale: string;
   remaining: number;
   limit: number;
@@ -105,6 +105,9 @@ export function AIZone({ copy, locale, remaining, limit, onSubmit }: Props) {
             }}
           >
             {fmtQuota(copy.aiQuotaFmt, remaining, limit)}
+            {copy.aiQuotaReset && (
+              <span style={{ marginLeft: 4, opacity: 0.7 }}>· {copy.aiQuotaReset}</span>
+            )}
           </span>
         )}
       </div>

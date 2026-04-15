@@ -42,6 +42,7 @@ import { EvidenceModal } from "@/components/homepage/EvidenceModal";
 import { LossAversionBanner } from "@/components/homepage/LossAversionBanner";
 import { TrustCommitmentCard } from "@/components/homepage/TrustCommitmentCard";
 import { TransparencyLayer } from "@/components/homepage/TransparencyLayer";
+import { ThreeStepGuide } from "@/components/homepage/ThreeStepGuide";
 import { useStreamQuery } from "@/hooks/useStreamQuery";
 import { getFaqData, type TabKey } from "@/lib/jtg/faq-data";
 
@@ -500,45 +501,8 @@ export default function JTGHomepage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* 3-step guide — toggled by primary card click */}
-        {showGuide && (
-          <div
-            style={{
-              marginTop: 12,
-              padding: "12px 14px",
-              background: "#E1F5EE",
-              borderRadius: "var(--border-radius-md)",
-              borderTop: "0.5px solid #9FE1CB",
-            }}
-          >
-            <p style={{ fontSize: 12, fontWeight: 500, color: "#0F6E56", margin: "0 0 8px" }}>
-              {copy.guideTitle}
-            </p>
-            {[copy.step1, copy.step2, copy.step3].map((step, i) => (
-              <div key={i} style={{ display: "flex", gap: 8, marginBottom: i < 2 ? 6 : 0 }}>
-                <span
-                  style={{
-                    width: 20,
-                    height: 20,
-                    borderRadius: "50%",
-                    background: "#1D9E75",
-                    color: "#fff",
-                    fontSize: 11,
-                    fontWeight: 500,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                    marginTop: 1,
-                  }}
-                >
-                  {i + 1}
-                </span>
-                <span style={{ fontSize: 12, color: "#0F6E56", lineHeight: 1.45 }}>{step}</span>
-              </div>
-            ))}
-          </div>
-        )}
+        {/* V5 §4.4: Three-step guide with platform cards — toggled by primary card click */}
+        <ThreeStepGuide isOpen={showGuide} locale={locale} copy={copy} />
       </header>
 
       {/* ── V6 ZONE 2: Trust promise bar (5 verifiable promises) ────── */}
@@ -1161,7 +1125,7 @@ export default function JTGHomepage({ params }: PageProps) {
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <a href={`/${locale}/privacy`} style={{ cursor: "pointer", color: "inherit", textDecoration: "none" }}>{copy.footerPrivacy}</a>
           <a href={`/${locale}/terms`} style={{ cursor: "pointer", color: "inherit", textDecoration: "none" }}>{copy.footerTerms}</a>
-          <span style={{ cursor: "pointer" }}>{copy.footerTranslation}</span>
+          <a href={`/${locale}/trust-center`} style={{ cursor: "pointer", color: "inherit", textDecoration: "none" }}>{copy.footerTranslation}</a>
           {/* V6: Evidence verify link */}
           <a href={`/${locale}/verify-evidence`} style={{ cursor: "pointer", color: "inherit", textDecoration: "none" }}>{copy.footerEvidenceVerify}</a>
           {/* V6: Report violation link */}
