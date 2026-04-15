@@ -1,0 +1,9 @@
+{
+  "captured_at": "2026-04-15",
+  "milestone": "P0 pages all live",
+  "zones_complete": ["ZONE-1"],
+  "routes_live": ["privacy","terms","verify-evidence","report","trust-center"],
+  "ts_errors": 0,
+  "vercel_nextjs_version": "16.2.3",
+  "deploy_note": "vercel --prod must run from web/ directory"
+}
